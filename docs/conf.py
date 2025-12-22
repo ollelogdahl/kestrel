@@ -17,10 +17,25 @@ release = "0.1"
 extensions = []
 
 templates_path = ["_templates"]
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", ".venv"]
-
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    ".venv",
+    "pyproject.toml",
+    "uv.lock",
+]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 html_theme = "alabaster"
 html_static_path = ["_static"]
+html_sidebars = {
+    "**": [
+        "about.html",
+        "searchfield.html",
+        "navigation.html",
+        "relations.html",
+        "donate.html",
+    ]
+}

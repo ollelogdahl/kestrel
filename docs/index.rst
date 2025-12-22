@@ -5,10 +5,20 @@ Kestrel is a modern GPGPU & Rendering API in similar vein to `Vulkan`_,
 however simlifying the API though focusing on modern hardware. It is
 designed for performance and developer flexibility. Instead of piling
 on feature flags, many of which are present on >99% of GPUs, we
-determine a minimal spec required. The API is built around device addressing
-and Resizable BAR.
+determine a minimal spec required. The API is built around device addressing.
 
 .. _Vulkan: https://www.vulkan.org/
+
+We believe a big hardware paradigm-shift has been going on, while the
+traditional graphics APIs have been stuck in legacy-support mode; both
+harming driver performance and development speed. Integrated GPUs have
+UMA, and modern discrete GPUs support Resizable BAR. Buffers don't have
+types, and you usually prefer to share them. Vulkan for example usually
+forces the developer to write barriers between different resources.
+This is not how modern GPUs work, and leads to the driver inneficiencies.
+
+This project has taken the good parts from Mesa3D, modernized them
+into a sleek User-Mode Driver (UMD), and develops a new API.
 
 Minimal spec hardware:
 
@@ -26,6 +36,7 @@ Minimal spec hardware:
    :hidden:
 
    self
+   motivation
    license
 
 .. toctree::
@@ -33,4 +44,5 @@ Minimal spec hardware:
    :caption: Developer Topics
    :hidden:
 
+   spec/index
    amd/index
