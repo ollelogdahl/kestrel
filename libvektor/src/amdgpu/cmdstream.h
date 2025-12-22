@@ -40,7 +40,7 @@ private:
     struct Submission {
         uint32_t start_dw;
         uint32_t end_dw;
-        amdgpu_cs_fence fence;
+        uint64_t point;
     };
 
     void wait_for_space(uint32_t target_dw_offset);
@@ -53,6 +53,8 @@ private:
     amdgpu_bo_handle      m_bo_handle;
     uint64_t              m_gpu_va;
     uint32_t* m_cpu_map;
+
+    uint64_t m_timeline_counter = 0;
 
     uint32_t              m_write_cursor_dw = 0;
     std::deque<Submission> m_history;

@@ -48,12 +48,14 @@ CommandList start_recording(Queue pq) {
     return cl;
 }
 
-void submit(Queue pq, CommandList pcl) {
+void submit(Queue pq, CommandList pcl, Semaphore sem, uint64_t value) {
     auto *queue = (QueueImpl *)pq;
     auto *cl = (CommandListImpl *)pcl;
     assert(cl->queue == queue, "submit: commandlist from foreign queue");
 
-    queue->cmd_ring->submit(cl->cs);
+    auto *semaphore = (SemaphoreImpl *)sem;
+
+    queue->cmd_ring->submit(cl->cs, semaphore, value);
 
     // @todo: to free commandlist, we want to be sure that it is no longer mapped and stuff.
     // then, we can freely-free it. But i think this needs some deferred-cleanup, as

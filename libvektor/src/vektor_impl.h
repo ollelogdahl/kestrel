@@ -32,4 +32,8 @@ struct CommandListImpl {
     CommandStream cs;
 };
 
+struct SemaphoreImpl {
+
+};
+
 }
