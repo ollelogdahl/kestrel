@@ -1,126 +1,94 @@
 #include "cmdstream.h"
+
 #include "beta.h"
 
-
-#include "gpuinfo.h"
-#include "amdgfxregs.h"
-#include "sid.h"
-#include <amdgpu_drm.h>
-
-CommandStream::CommandStream(GpuInfo &info, uint8_t ip_type) : info(info), ip_type(ip_type) {
-
+void CommandStream::emit(uint32_t x) {
+    assert(cursor < end, "commandstream emit out of bounds: {}-{} {}", (void *)start, (void *)end, (void *)cursor);
+    *cursor++ = x;
 }
 
-void CommandStream::emit(uint32_t value) {
-    buf.push_back(value);
+CommandRing::CommandRing(amdgpu_device_handle dev, amdgpu_context_handle ctx, uint32_t ip_type, Config cfg)
+    : m_dev(dev), m_ctx(ctx), m_ip_type(ip_type), m_cfg(cfg) {
+
+    amdgpu_bo_alloc_request req = {
+        .alloc_size = m_cfg.ring_size_bytes,
+        .phys_alignment = 4096,
+        .preferred_heap = AMDGPU_GEM_DOMAIN_GTT,
+        .flags = AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED | AMDGPU_GEM_CREATE_UNCACHED // Or WC
+    };
+
+    amdgpu_bo_alloc(m_dev, &req, &m_bo_handle);
+
+    void* ptr;
+    amdgpu_bo_cpu_map(m_bo_handle, &ptr);
+    m_cpu_map = static_cast<uint32_t*>(ptr);
+
+    amdgpu_va_range_alloc(m_dev, amdgpu_gpu_va_range_general, m_cfg.ring_size_bytes, 1, 0, &m_gpu_va, nullptr, 0);
+    amdgpu_bo_va_op(m_bo_handle, 0, m_cfg.ring_size_bytes, m_gpu_va, AMDGPU_VM_PAGE_READABLE, AMDGPU_VA_OP_MAP);
 }
 
-void CommandStream::emit(std::span<uint32_t> values) {
-    buf.insert(buf.end(), values.begin(), values.end());
+CommandStream CommandRing::begin_recording() {
+    uint32_t stream_dw = m_cfg.stream_size_bytes / 4;
+
+    if (m_write_cursor_dw + stream_dw > (m_cfg.ring_size_bytes / 4)) {
+        m_write_cursor_dw = 0;
+    }
+
+    wait_for_space(m_write_cursor_dw);
+
+    CommandStream cs;
+    cs.cursor = m_cpu_map + m_write_cursor_dw;
+    cs.end    = cs.cursor + stream_dw;
+    cs.gpu_va_start = m_gpu_va + (m_write_cursor_dw * 4);
+
+    return cs;
 }
 
-void CommandStream::set_reg_seq(uint32_t reg, uint32_t num, uint32_t idx, uint32_t bank_offset, uint32_t bank_end, uint32_t packet, uint32_t reset_filter_cam) {
-    assert(reg >= bank_offset && reg < bank_end, "register out of range: {}", reg);
-    emit(PKT3(packet, num, 0) | PKT3_RESET_FILTER_CAM_S(reset_filter_cam));
-    emit(((reg - bank_offset) >> 2) | (idx << 28));
+void CommandRing::submit(CommandStream& cs) {
+    uint32_t start_dw = cs.end - (m_cfg.stream_size_bytes / 4) - m_cpu_map;
+    start_dw = (reinterpret_cast<uint8_t*>(cs.end) - reinterpret_cast<uint8_t*>(m_cpu_map) - m_cfg.stream_size_bytes) / 4;
+
+    uint32_t count_dw = cs.cursor - (cs.end - (m_cfg.stream_size_bytes / 4));
+
+    amdgpu_cs_ib_info ib = {};
+    //ib.handle = m_bo_handle;
+    ib.ib_mc_address = cs.gpu_va_start;
+    ib.size = count_dw;
+
+    amdgpu_cs_request req = {};
+    req.ip_type = m_ip_type;
+    req.number_of_ibs = 1;
+    req.ibs = &ib;
+
+    if (amdgpu_cs_submit(m_ctx, 0, &req, 1) == 0) {
+        amdgpu_cs_fence fence = {};
+        fence.context = m_ctx;
+        fence.ip_type = m_ip_type;
+        // @todo: syncronization...
+
+        m_history.push_back({start_dw, start_dw + (uint32_t)(m_cfg.stream_size_bytes/4), fence});
+        m_write_cursor_dw += (m_cfg.stream_size_bytes / 4);
+    }
 }
 
-void CommandStream::set_reg(uint32_t reg, uint32_t idx, uint32_t value, uint32_t bank_offset, uint32_t bank_end, uint32_t packet) {
-    set_reg_seq(reg, 1, idx, bank_offset, bank_end, packet, 0);
-    emit(value);
+void CommandRing::wait_for_space(uint32_t target_dw) {
+    /*
+    while (!m_history.empty()) {
+        auto& oldest = m_history.front();
+
+        // If target overlaps with the oldest pending submission
+        if (target_dw >= oldest.start_dw && target_dw < oldest.end_dw) {
+            uint32_t expired = 0;
+            amdgpu_cs_wait_fences(&oldest.fence, 1, true, 1000000000, &expired, nullptr);
+            m_history.pop_front();
+        } else {
+            break;
+        }
+    }
+    */
 }
 
-void CommandStream::set_config_reg_seq(uint32_t reg, uint32_t num) {
-    set_reg_seq(reg, num, 0, SI_CONFIG_REG_OFFSET, SI_CONFIG_REG_END, PKT3_SET_CONFIG_REG, 0);
-}
-
-void CommandStream::set_config_reg(uint32_t reg, uint32_t value) {
-    set_reg(reg, 0, value, SI_CONFIG_REG_OFFSET, SI_CONFIG_REG_END, PKT3_SET_CONFIG_REG);
-}
-
-void CommandStream::set_uconfig_reg_seq(uint32_t reg, uint32_t num) {
-    set_reg_seq(reg, num, 0, CIK_UCONFIG_REG_OFFSET, CIK_UCONFIG_REG_END, PKT3_SET_UCONFIG_REG, 0);
-}
-
-void CommandStream::set_uconfig_reg(uint32_t reg, uint32_t value) {
-    set_reg(reg, 0, value, CIK_UCONFIG_REG_OFFSET, CIK_UCONFIG_REG_END, PKT3_SET_UCONFIG_REG);
-}
-
-void CommandStream::set_uconfig_reg_idx(uint32_t reg, uint32_t idx, uint32_t value) {
-    set_reg(reg, idx, value, CIK_UCONFIG_REG_OFFSET, CIK_UCONFIG_REG_END, PKT3_SET_UCONFIG_REG_INDEX);
-}
-
-/*
- * On GFX10, there is a bug with the ME implementation of its content
- * addressable memory (CAM), that means that it can skip register writes due
- * to not taking correctly into account the fields from the GRBM_GFX_INDEX.
- * With this __filter_cam_workaround bit we can force the write.
- */
-void CommandStream::set_uconfig_perfctr_reg_seq(uint32_t reg, uint32_t num) {
-    bool filter_cam_workaround = (info.gfx_level > GfxLevel::GFX10) && ip_type == AMDGPU_HW_IP_GFX;
-    set_reg_seq(reg, num, 0, CIK_UCONFIG_REG_OFFSET, CIK_UCONFIG_REG_END, PKT3_SET_UCONFIG_REG, filter_cam_workaround);
-}
-
-void CommandStream::set_uconfig_perfctr_reg(uint32_t reg, uint32_t value) {
-    set_uconfig_perfctr_reg_seq(reg, 1);
-    emit(value);
-}
-
-void CommandStream::set_context_reg_seq(uint32_t reg, uint32_t num) {
-    set_reg_seq(reg, num, 0, SI_CONTEXT_REG_OFFSET, SI_CONTEXT_REG_END, PKT3_SET_CONTEXT_REG, 0);
-}
-
-void CommandStream::set_context_reg(uint32_t reg, uint32_t value) {
-    set_reg(reg, 0, value, SI_CONTEXT_REG_OFFSET, SI_CONTEXT_REG_END, PKT3_SET_CONTEXT_REG);
-}
-
-void CommandStream::set_context_reg_idx(uint32_t reg, uint32_t idx, uint32_t value) {
-    set_reg(reg, idx, value, SI_CONTEXT_REG_OFFSET, SI_CONTEXT_REG_END, PKT3_SET_CONTEXT_REG);
-}
-
-void CommandStream::set_sh_reg_seq(uint32_t reg, uint32_t num) {
-    set_reg_seq(reg, num, 0, SI_SH_REG_OFFSET, SI_SH_REG_END, PKT3_SET_SH_REG, 0);
-}
-
-void CommandStream::set_sh_reg(uint32_t reg, uint32_t value) {
-    set_reg(reg, 0, value, SI_SH_REG_OFFSET, SI_SH_REG_END, PKT3_SET_SH_REG);
-}
-
-void CommandStream::set_sh_reg_idx(uint32_t reg, uint32_t idx, uint32_t value) {
-    uint32_t opcode = PKT3_SET_SH_REG_INDEX;
-    set_reg(reg, idx, value, SI_SH_REG_OFFSET, SI_SH_REG_END, opcode);
-}
-
-void CommandStream::emit_32bit_pointer(uint32_t sh_offset, uint64_t va) {
-    assert(va == 0 || (va >> 32) == info.address32_hi, "va outside valid range: {}", va);
-    set_sh_reg(sh_offset, va);
-}
-
-void CommandStream::emit_64bit_pointer(uint32_t sh_offset, uint64_t va) {
-    set_sh_reg(sh_offset, 2);
-    emit(va);
-    emit(va >> 32);
-}
-
-void CommandStream::event_write_predicate(uint32_t event_type, bool predicate) {
-    emit(PKT3(PKT3_EVENT_WRITE, 0, predicate));
-    auto ev_index = event_type == V_028A90_VS_PARTIAL_FLUSH ||
-                event_type == V_028A90_PS_PARTIAL_FLUSH ||
-                event_type == V_028A90_CS_PARTIAL_FLUSH ? 4 :
-                event_type == V_028A90_PIXEL_PIPE_STAT_CONTROL ? 1 : 0;
-    emit(EVENT_TYPE(event_type) | EVENT_INDEX(ev_index));
-}
-
-void CommandStream::event_write(uint32_t event_type) {
-    event_write_predicate(event_type, false);
-}
-
-void CommandStream::set_privileged_config_reg(uint32_t reg, uint32_t value) {
-    assert(reg < CIK_UCONFIG_REG_OFFSET, "reg outside valid range for privileged config: {}", reg);
-    emit(PKT3(PKT3_COPY_DATA, 4, 0));
-    emit(COPY_DATA_SRC_SEL(COPY_DATA_IMM) | COPY_DATA_DST_SEL(COPY_DATA_PERF));
-    emit(value);
-    emit(0);
-    emit(reg >> 2);
-    emit(0);
+CommandRing::~CommandRing() {
+    amdgpu_bo_cpu_unmap(m_bo_handle);
+    amdgpu_bo_free(m_bo_handle);
 }

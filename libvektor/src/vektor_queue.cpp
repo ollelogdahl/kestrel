@@ -1,53 +1,59 @@
 #include "vektor/vektor.h"
 #include "vektor_impl.h"
+#include "beta.h"
 #include <cstdint>
 #include <vector>
 
 namespace vektor {
 
-struct QueueImpl {
-    amdgpu_context_handle ctx_handle;
-    uint32_t ctx_id;
-};
+uint32_t hw_ip_type_from_queue_type(QueueType qt) {
+    switch(qt) {
+    case QueueType::Graphics: return AMDGPU_HW_IP_GFX;
+    case QueueType::Compute: return AMDGPU_HW_IP_COMPUTE;
+    case QueueType::Transfer: return AMDGPU_HW_IP_DMA;
+    default:
+        not_implemented("no HW_IP type picked for queue type: {}", qt);
+    }
+}
 
-struct CommandListImpl {
-    std::vector<uint32_t> commands;
-
-};
-
-Queue create_queue(Device pd) {
+Queue create_queue(Device pd, QueueType qt) {
     auto *dev = (DeviceImpl *)pd;
 
     auto queue = new QueueImpl;
+    queue->dev = dev;
+    queue->type = qt;
+    queue->hw_ip_type = hw_ip_type_from_queue_type(qt);
 
+    // @todo: consider creating ctx at device initialization?
     int r = amdgpu_cs_ctx_create(dev->amd_handle, &queue->ctx_handle);
     if (r != 0) {
         delete queue;
         return nullptr;
     }
 
-    drm_amdgpu_ctx_in ctx_in = {};
-    ctx_in.op = AMDGPU_CTX_OP_ALLOC_CTX;
-
-    drm_amdgpu_ctx ctx_args = {};
-    ctx_args.in = ctx_in;
-
-    // r = drmCommandWriteRead(dev->fd, DRM_AMDGPU_CTX, &ctx_args, sizeof(ctx_args));
-    // if (r == 0) {
-    //     queue->ctx_id = ctx_args.out.alloc.ctx_id;
-    // }
+    // @todo: cleanup: remove this fkn pointer; shit stuff we don't need!
+    auto conf = CommandRing::Config{};
+    queue->cmd_ring = new CommandRing(dev->amd_handle, queue->ctx_handle, queue->hw_ip_type, conf);
 
     return queue;
 }
 
 CommandList start_recording(Queue pq) {
+    auto *queue = (QueueImpl *)pq;
     auto cl = new CommandListImpl;
 
-    return nullptr;
+    cl->queue = queue;
+    cl->cs = queue->cmd_ring->begin_recording();
+
+    return cl;
 }
 
 void submit(Queue pq, CommandList pcl) {
+    auto *queue = (QueueImpl *)pq;
+    auto *cl = (CommandListImpl *)pcl;
+    assert(cl->queue == queue, "submit: commandlist from foreign queue");
 
+    queue->cmd_ring->submit(cl->cs);
 }
 
 }

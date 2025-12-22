@@ -2,16 +2,17 @@
 
 #include <fmt/base.h>
 #include <fmt/format.h>
+#include "type_format.h"
 
 template <typename... T>
-void not_implemented(fmt::format_string<T...> fmt, T&&... args) {
+[[noreturn]] void not_implemented(fmt::format_string<T...> fmt, T&&... args) {
     auto s = fmt::vformat(fmt, fmt::make_format_args(args...));
     printf("not implemented: %s\n", s);
     exit(1);
 }
 
 template <typename... T>
-void panic(fmt::format_string<T...> fmt, T&&... args) {
+[[noreturn]] void panic(fmt::format_string<T...> fmt, T&&... args) {
     auto s = fmt::vformat(fmt, fmt::make_format_args(args...));
     printf("panic: %s\n", s);
     exit(1);

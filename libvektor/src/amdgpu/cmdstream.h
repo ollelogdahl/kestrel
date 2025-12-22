@@ -1,56 +1,59 @@
 #pragma once
 
-#include <span>
-#include <vector>
+#include <cstdint>
+#include <deque>
 
-#include "gpuinfo.h"
-// #include "pm4.h"
+#include <amdgpu.h>
+#include <amdgpu_drm.h>
 
 class CommandStream {
 public:
-    CommandStream(GpuInfo &info, uint8_t ip_type);
-
-    void emit(uint32_t value);
-    void emit(std::span<uint32_t> values);
-
-    void emit_32bit_pointer(uint32_t sh_offset, uint64_t va);
-    void emit_64bit_pointer(uint32_t sh_offset, uint64_t va);
-
-    // @todo: figure out better sizes for reg, num, value, ...
-
-    // Packet building helpers for CONFIG registers.
-    void set_config_reg_seq(uint32_t reg, uint32_t num);
-    void set_config_reg(uint32_t reg, uint32_t value);
-
-    // Packet building helpers for UCONFIG registers.
-    void set_uconfig_reg_seq(uint32_t reg, uint32_t num);
-    void set_uconfig_reg(uint32_t reg, uint32_t value);
-    void set_uconfig_reg_idx(uint32_t reg, uint32_t idx, uint32_t value);
-
-    void set_uconfig_perfctr_reg_seq(uint32_t reg, uint32_t num);
-    void set_uconfig_perfctr_reg(uint32_t reg, uint32_t value);
-
-    // Packet building helpers for CONTEXT registers.
-    void set_context_reg_seq(uint32_t reg, uint32_t num);
-    void set_context_reg(uint32_t reg, uint32_t value);
-    void set_context_reg_idx(uint32_t reg, uint32_t idx, uint32_t value);
-
-    // Packet building helpers for SH registers.
-    void set_sh_reg_seq(uint32_t reg, uint32_t num);
-    void set_sh_reg(uint32_t reg, uint32_t value);
-    void set_sh_reg_idx(uint32_t reg, uint32_t idx, uint32_t value);
-
-    void event_write_predicate(uint32_t event_type, bool predicate);
-    void event_write(uint32_t event_type);
-
-    void set_privileged_config_reg(uint32_t reg, uint32_t value);
+    void emit(uint32_t);
+    std::size_t size_dw() const { return cursor - start; }
 private:
-    void set_reg_seq(uint32_t reg, uint32_t num, uint32_t idx, uint32_t bank_offset, uint32_t bank_end, uint32_t packet, uint32_t reset_filter_cam);
-    void set_reg(uint32_t reg, uint32_t idx, uint32_t value, uint32_t bank_offset, uint32_t bank_end, uint32_t packet);
+    uint32_t *start;
+    uint32_t *end;
+    uint32_t *cursor;
+    uint64_t gpu_va_start;
 
-    GpuInfo &info;
-    uint8_t ip_type;
+    friend class CommandRing;
+};
 
-    std::vector<uint32_t> buf;
-    bool context_roll;
+// @todo: think about syncronization...
+
+class CommandRing {
+public:
+    struct Config {
+        std::size_t ring_size_bytes = 2 * 1024 * 1024; // 2MB
+        std::size_t stream_size_bytes = 128 * 1024;    // 128KB
+    };
+
+    CommandRing(amdgpu_device_handle dev, amdgpu_context_handle ctx, uint32_t ip_type, Config cfg);
+    ~CommandRing();
+
+    CommandRing(const CommandRing&) = delete;
+
+    CommandStream begin_recording();
+    void submit(CommandStream& cs);
+
+private:
+    struct Submission {
+        uint32_t start_dw;
+        uint32_t end_dw;
+        amdgpu_cs_fence fence;
+    };
+
+    void wait_for_space(uint32_t target_dw_offset);
+
+    amdgpu_device_handle  m_dev;
+    amdgpu_context_handle m_ctx;
+    uint32_t              m_ip_type;
+    Config                m_cfg;
+
+    amdgpu_bo_handle      m_bo_handle;
+    uint64_t              m_gpu_va;
+    uint32_t* m_cpu_map;
+
+    uint32_t              m_write_cursor_dw = 0;
+    std::deque<Submission> m_history;
 };

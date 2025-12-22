@@ -13,6 +13,12 @@ struct Version {
     const char *commit_id;
 };
 
+enum class QueueType {
+    Graphics,
+    Compute,
+    Transfer
+};
+
 typedef void *Device;
 typedef void *Queue;
 typedef void *CommandList;
@@ -38,9 +44,11 @@ Allocation malloc(Device, std::size_t size, Memory memory = Memory::Default);
 Allocation malloc(Device, std::size_t size, std::size_t align, Memory memory = Memory::Default);
 void free(Device, Allocation &);
 
-Queue create_queue(Device);
+Queue create_queue(Device, QueueType);
 CommandList start_recording(Queue);
 
 void submit(Queue, CommandList);
+
+void memset(CommandList, gpuptr_t addr, std::size_t size, uint32_t value);
 
 };
