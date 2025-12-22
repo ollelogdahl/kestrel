@@ -23,7 +23,8 @@ CommandRing::CommandRing(amdgpu_device_handle dev, amdgpu_context_handle ctx, ui
     amdgpu_bo_cpu_map(m_bo_handle, &ptr);
     m_cpu_map = static_cast<uint32_t*>(ptr);
 
-    amdgpu_va_range_alloc(m_dev, amdgpu_gpu_va_range_general, m_cfg.ring_size_bytes, 1, 0, &m_gpu_va, nullptr, 0);
+    amdgpu_va_handle va_handle;
+    amdgpu_va_range_alloc(m_dev, amdgpu_gpu_va_range_general, m_cfg.ring_size_bytes, 1, 0, &m_gpu_va, &va_handle, 0);
     amdgpu_bo_va_op(m_bo_handle, 0, m_cfg.ring_size_bytes, m_gpu_va, AMDGPU_VM_PAGE_READABLE, AMDGPU_VA_OP_MAP);
 }
 

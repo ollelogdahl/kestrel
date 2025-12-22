@@ -54,6 +54,12 @@ void submit(Queue pq, CommandList pcl) {
     assert(cl->queue == queue, "submit: commandlist from foreign queue");
 
     queue->cmd_ring->submit(cl->cs);
+
+    // @todo: to free commandlist, we want to be sure that it is no longer mapped and stuff.
+    // then, we can freely-free it. But i think this needs some deferred-cleanup, as
+    // the data is on GTT so we cannot just let the CPU start using the range again.
+    //
+    // think about this.
 }
 
 }

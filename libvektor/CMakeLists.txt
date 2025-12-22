@@ -24,6 +24,8 @@ target_link_libraries(vektor PRIVATE
     fmt::fmt
 )
 
+add_sanitizers(vektor)
+
 file(GLOB TEST_DIRS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/test ${CMAKE_CURRENT_SOURCE_DIR}/test/*)
 
 foreach(test_dir ${TEST_DIRS})
@@ -41,6 +43,8 @@ foreach(test_dir ${TEST_DIRS})
 
             # 4. Link your library (libvektor)
             target_link_libraries(${test_name} PRIVATE vektor)
+
+            add_sanitizers(${test_name})
 
             message(STATUS "Added test: ${test_name}")
         endif()

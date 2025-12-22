@@ -23,6 +23,9 @@ int main(void) {
     vektor::submit(dma, l1);
 
     // @todo: how to wait on cpu for DMA transfer? TODO?
+    printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
+    sleep(1);
+    printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
 
     vektor::free(dev, x);
     vektor::destroy(dev);
