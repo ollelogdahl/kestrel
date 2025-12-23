@@ -45,6 +45,10 @@ int main(void) {
     printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
     sleep(1);
     printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
+    sleep(1);
+    printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
+    sleep(1);
+    printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
 
     printf("\n");
     printf("ts0: %lu\n", ((uint64_t *)ts.cpu)[0]);

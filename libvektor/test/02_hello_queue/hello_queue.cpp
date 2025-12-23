@@ -17,6 +17,8 @@ int main(void) {
     printf("x: %p (%p) (%llu bytes)\n", x.cpu, x.gpu, x.size);
     printf("y: %p (%p) (%llu bytes)\n", y.cpu, y.gpu, y.size);
 
+    // @todo: wait for address ok?
+
     auto dma = vektor::create_queue(dev, vektor::QueueType::Transfer);
 
     auto l1 = vektor::start_recording(dma);
@@ -26,12 +28,14 @@ int main(void) {
 
     vektor::submit(dma, l1);
 
-    // @todo: how to wait on cpu for DMA transfer? TODO?
+    // @todo: hacky bussy-wait
     printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
-    sleep(1);
+
+    while(*((uint32_t *)x.cpu) == 0);
     printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
     *((uint32_t *)y.cpu) = 1337;
-    sleep(1);
+
+    while(*((uint32_t *)x.cpu) == 1);
     printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
 
     vektor::free(dev, x);
