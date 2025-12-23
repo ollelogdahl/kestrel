@@ -1,5 +1,5 @@
 Introduction
-=====================
+============
 
 Kestrel is a modern GPGPU & Rendering API in similar vein to `Vulkan`_,
 however simlifying the API though focusing on modern hardware. It is
@@ -38,6 +38,7 @@ Minimal spec hardware:
    self
    motivation
    license
+   api
 
 .. toctree::
    :maxdepth: 1

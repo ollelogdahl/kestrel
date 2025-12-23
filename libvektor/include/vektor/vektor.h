@@ -7,7 +7,6 @@
 
 namespace vektor {
 
-
 struct Version {
     const char *version;
     const char *commit_id;
@@ -59,14 +58,34 @@ struct Allocation {
     alignas(16) std::byte _impl[16];
 };
 
-
+/**
+ * Retrieves
+ */
 Version version();
 
+/**
+ * Creates a new Device
+ */
 Device create();
+
+/**
+ * Destroys the given device
+ */
 void destroy(Device);
 
+/**
+ * Allocate memory on GPU
+ */
 Allocation malloc(Device, std::size_t size, Memory memory = Memory::Default);
+
+/**
+ * Allocate memory on GPU with alignment
+ */
 Allocation malloc(Device, std::size_t size, std::size_t align, Memory memory = Memory::Default);
+
+/**
+ * Free memory on GPU
+ */
 void free(Device, Allocation &);
 
 Semaphore create_semaphore(uint64_t value);
