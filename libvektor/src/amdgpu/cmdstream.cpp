@@ -56,18 +56,24 @@ void CommandRing::submit(CommandStream& cs) {
     ib.ib_mc_address = cs.gpu_va_start;
     ib.size = count_dw;
 
+    auto next_point = m_timeline_counter++;
+
     amdgpu_cs_request req = {};
     req.ip_type = m_ip_type;
     req.number_of_ibs = 1;
     req.ibs = &ib;
 
-    if (amdgpu_cs_submit(m_ctx, 0, &req, 1) == 0) {
+    auto r = amdgpu_cs_submit(m_ctx, 0, &req, 1);
+    if (r != 0) {
+        warn("submit failed: (ctx: {}) {}", (void *)m_ctx, r);
+    }
+    if (r == 0) {
         amdgpu_cs_fence fence = {};
         fence.context = m_ctx;
         fence.ip_type = m_ip_type;
         // @todo: syncronization...
 
-        m_history.push_back({start_dw, start_dw + (uint32_t)(m_cfg.stream_size_bytes/4), fence});
+        m_history.push_back({start_dw, start_dw + (uint32_t)(m_cfg.stream_size_bytes/4), next_point});
         m_write_cursor_dw += (m_cfg.stream_size_bytes / 4);
     }
 }

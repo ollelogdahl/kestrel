@@ -12,7 +12,7 @@ int main(void) {
 
     std::size_t size = 10 * 1024 * 1024;
     auto x = vektor::malloc(dev, size);
-    auto y = vektor::malloc(dev, 8);
+    auto y = vektor::malloc(dev, 16);
 
     printf("x: %p (%p) (%llu bytes)\n", x.cpu, x.gpu, x.size);
     printf("y: %p (%p) (%llu bytes)\n", y.cpu, y.gpu, y.size);
@@ -20,9 +20,9 @@ int main(void) {
     auto dma = vektor::create_queue(dev, vektor::QueueType::Transfer);
 
     auto l1 = vektor::start_recording(dma);
-    vektor::memset(l1, x.gpu, size, 1);
-    vektor::wait_before(l1, vektor::Stage::Transfer, y.gpu, 1337, vektor::Op::Equal);
+    vektor::write_timestamp(l1, y.gpu);
     vektor::memset(l1, x.gpu, size, 2);
+    vektor::write_timestamp(l1, y.gpu + 8);
 
     vektor::submit(dma, l1);
 
@@ -30,9 +30,9 @@ int main(void) {
     printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
     sleep(1);
     printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
-    *((uint32_t *)y.cpu) = 1337;
-    sleep(1);
-    printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
+
+    printf("ts0: %ul\n", ((uint64_t *)y.cpu)[0]);
+    printf("ts1: %ul\n", ((uint64_t *)y.cpu)[1]);
 
     vektor::free(dev, x);
     vektor::destroy(dev);

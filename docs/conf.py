@@ -28,7 +28,8 @@ exclude_patterns = [
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
-html_theme = "alabaster"
+
+html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 html_sidebars = {
     "**": [
@@ -38,4 +39,7 @@ html_sidebars = {
         "relations.html",
         "donate.html",
     ]
+}
+html_theme_options = {
+    "display_version": "true",
 }

@@ -39,6 +39,7 @@ enum class Op {
 
 enum HazardFlags {
     // @todo
+    None = 0,
     DrawArguments = 1 << 0,
     Descriptors = 1 << 1
 };
@@ -77,8 +78,10 @@ void submit(Queue, CommandList, Semaphore = nullptr, uint64_t value = 0);
 
 void memset(CommandList, gpuptr_t addr, std::size_t size, uint32_t value);
 
+void write_timestamp(CommandList, gpuptr_t addr);
+
 void signal_after(CommandList, Stage before, gpuptr_t ptr, uint64_t value, Signal);
-void wait_before(CommandList, Stage after, gpuptr_t ptr, uint64_t value, Op, HazardFlags hazard = 0, uint64 mask = ~0);
+void wait_before(CommandList, Stage after, gpuptr_t ptr, uint64_t value, Op, HazardFlags hazard = HazardFlags::None, uint64_t mask = ~0);
 void wait_semaphore(Semaphore, uint64_t value);
 void signal_semaphore(Semaphore, uint64_t value);
 

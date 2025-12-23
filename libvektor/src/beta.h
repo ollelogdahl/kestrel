@@ -7,14 +7,14 @@
 template <typename... T>
 [[noreturn]] void not_implemented(fmt::format_string<T...> fmt, T&&... args) {
     auto s = fmt::vformat(fmt, fmt::make_format_args(args...));
-    printf("not implemented: %s\n", s);
+    printf("not implemented: %s\n", s.c_str());
     exit(1);
 }
 
 template <typename... T>
 [[noreturn]] void panic(fmt::format_string<T...> fmt, T&&... args) {
     auto s = fmt::vformat(fmt, fmt::make_format_args(args...));
-    printf("panic: %s\n", s);
+    printf("panic: %s\n", s.c_str());
     exit(1);
 }
 
@@ -22,6 +22,12 @@ template <typename... T>
 void log(fmt::format_string<T...> fmt, T&&... args) {
     auto s = fmt::vformat(fmt, fmt::make_format_args(args...));
     printf("%s\n", s.c_str());
+}
+
+template <typename... T>
+void warn(fmt::format_string<T...> fmt, T&&... args) {
+    auto s = fmt::vformat(fmt, fmt::make_format_args(args...));
+    printf("warn: %s\n", s.c_str());
 }
 
 template <typename... T>

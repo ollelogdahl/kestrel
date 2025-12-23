@@ -26,7 +26,7 @@ target_link_libraries(vektor PRIVATE
 
 add_sanitizers(vektor)
 
-file(GLOB TEST_DIRS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/test ${CMAKE_CURRENT_SOURCE_DIR}/test/*)
+file(GLOB TEST_DIRS CONFIGURE_DEPENDS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/test ${CMAKE_CURRENT_SOURCE_DIR}/test/*)
 
 foreach(test_dir ${TEST_DIRS})
     # Ensure we are looking at a directory, not a random file

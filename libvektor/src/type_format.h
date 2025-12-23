@@ -15,4 +15,24 @@ inline std::string format_as(vektor::QueueType qt) {
     }
 }
 
+inline std::string format_as(vektor::Signal sig) {
+    switch(sig) {
+    case Signal::AtomicSet: return "atomic_set";
+    case Signal::AtomicMax: return "atomic_max";
+    case Signal::AtomicOr:  return "atomic_or";
+    default:
+        return "unknown";
+    }
+}
+
+inline std::string format_as(vektor::Op op) {
+    switch(op) {
+    case Op::Never: return "never";
+    case Op::Less: return "less";
+    case Op::Equal: return "equal";
+    default:
+        return "unknown";
+    }
+}
+
 }
