@@ -1,10 +1,9 @@
 include(ExternalProject)
 
-
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_subdirectory(fmt)
 
-set(LIBDRM_SOURCE_DIR ${CMAKE_SOURCE_DIR}/vendor/libdrm-2.4.131)
+set(LIBDRM_SOURCE_DIR ${CMAKE_SOURCE_DIR}/vendor/libdrm)
 set(LIBDRM_INSTALL_DIR ${CMAKE_BINARY_DIR}/vendor/install)
 
 file(MAKE_DIRECTORY ${LIBDRM_INSTALL_DIR}/include)
@@ -38,6 +37,7 @@ ExternalProject_Add(libdrm_project
 
 add_library(libdrm::libdrm SHARED IMPORTED GLOBAL)
 add_library(libdrm::amdgpu SHARED IMPORTED GLOBAL)
+add_library(libdrm::i915 SHARED IMPORTED GLOBAL)
 
 set_target_properties(libdrm::libdrm PROPERTIES
     IMPORTED_LOCATION "${LIBDRM_INSTALL_DIR}/lib/libdrm.so"
@@ -48,5 +48,10 @@ set_target_properties(libdrm::amdgpu PROPERTIES
     IMPORTED_LOCATION "${LIBDRM_INSTALL_DIR}/lib/libdrm_amdgpu.so"
     INTERFACE_INCLUDE_DIRECTORIES "${LIBDRM_INSTALL_DIR}/include;${LIBDRM_INSTALL_DIR}/include/libdrm"
 )
+set_target_properties(libdrm::i915 PROPERTIES
+    IMPORTED_LOCATION "${LIBDRM_INSTALL_DIR}/lib/libdrm_i915.so"
+    INTERFACE_INCLUDE_DIRECTORIES "${LIBDRM_INSTALL_DIR}/include;${LIBDRM_INSTALL_DIR}/include/libdrm"
+)
 add_dependencies(libdrm::libdrm libdrm_project)
 add_dependencies(libdrm::amdgpu libdrm_project)
+add_dependencies(libdrm::i915 libdrm_project)

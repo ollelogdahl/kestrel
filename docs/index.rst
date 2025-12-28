@@ -1,5 +1,5 @@
-Introduction
-============
+Kestrel Project
+================
 
 Kestrel is a modern GPGPU & Rendering API in similar vein to `Vulkan`_,
 however simlifying the API though focusing on modern hardware. It is
@@ -18,7 +18,7 @@ forces the developer to write barriers between different resources.
 This is not how modern GPUs work, and leads to the driver inneficiencies.
 
 This project has taken the good parts from Mesa3D, modernized them
-into a sleek User-Mode Driver (UMD), and develops a new API.
+into a sleek User-Mode Driver (:term:`UMD`), and develops a new API.
 
 Minimal spec hardware:
 
@@ -31,19 +31,24 @@ Minimal spec hardware:
 - PowerVR DXT (Pixel 10, 2025)
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Documentation
    :hidden:
 
-   self
    motivation
+   usage/getting_started
+   usage/examples
    license
-   api
+   glossary
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Developer Topics
    :hidden:
 
+   api/index
    spec/index
-   amd/index
+
+.. toctree::
+   :hidden:
+
+   drivers/index
+
+
+:ref:`genindex`

@@ -1,24 +1,7 @@
-#find_program(SPHINX_EXECUTABLE sphinx-build REQUIRED)
-#
-#configure_file(
-#    "${CMAKE_CURRENT_SOURCE_DIR}/conf.py.in"
-#    "${CMAKE_CURRENT_BINARY_DIR}/conf.py"
-#    @ONLY
-#)
-#
-#add_custom_target(docs
-#    COMMAND ${SPHINX_EXECUTABLE}
-#            -W -n -b html
-#            -c "${CMAKE_CURRENT_BINARY_DIR}"
-#            "${CMAKE_CURRENT_SOURCE_DIR}"
-#            "${CMAKE_CURRENT_BINARY_DIR}/html"
-#    COMMENT "Building HTML documentation with Sphinx"
-#    VERBATIM
-#)
-
 find_program(UV_EXECUTABLE uv REQUIRED)
 find_package(Doxygen REQUIRED)
 
+set(DOXYGEN_GENERATE_HTML NO)
 set(DOXYGEN_GENERATE_XML YES)
 set(DOXYGEN_XML_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/xml")
 
