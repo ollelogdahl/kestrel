@@ -50,12 +50,12 @@ struct DeviceHandle {
 };
 
 struct QueueHandle {
-    KesDevice drv_handle;
+    DeviceHandle *dev;
     KesQueue queue;
 };
 
 struct CommandListHandle {
-    KesDevice drv_handle;
+    DeviceHandle *dev;
     KesCommandList cmdlist;
 };
 
@@ -132,7 +132,7 @@ API_EXPORT KesQueue kes_create_queue(KesDevice pd, KesQueueType type) {
     auto queue = dev->fns.fn_create_queue(dev->drv_handle, type);
 
     auto *qhandle = new QueueHandle{};
-    qhandle->drv_handle = dev->drv_handle;
+    qhandle->dev = dev;
     qhandle->queue = queue;
     return qhandle;
 }
@@ -140,7 +140,7 @@ API_EXPORT KesQueue kes_create_queue(KesDevice pd, KesQueueType type) {
 API_EXPORT void kes_destroy_queue(KesQueue pq) {
     auto *qhandle = reinterpret_cast<QueueHandle *>(pq);
     if (qhandle) {
-        auto *dev = reinterpret_cast<DeviceHandle *>(qhandle->drv_handle);
+        auto *dev = qhandle->dev;
         dev->fns.fn_destroy_queue(qhandle->queue);
         delete qhandle;
     }
@@ -148,9 +148,9 @@ API_EXPORT void kes_destroy_queue(KesQueue pq) {
 
 API_EXPORT KesCommandList kes_start_recording(KesQueue pq) {
     auto *qhandle = reinterpret_cast<QueueHandle *>(pq);
-    auto *dev = reinterpret_cast<DeviceHandle *>(qhandle->drv_handle);
+    auto *dev = qhandle->dev;
     auto *clhandle = new CommandListHandle{};
-    clhandle->drv_handle = qhandle->drv_handle;
+    clhandle->dev = qhandle->dev;
     clhandle->cmdlist = dev->fns.fn_start_recording(qhandle->queue);
 
     return clhandle;
@@ -159,7 +159,7 @@ API_EXPORT KesCommandList kes_start_recording(KesQueue pq) {
 API_EXPORT void kes_submit(KesQueue pq, KesCommandList pcl) {
     auto *qhandle = reinterpret_cast<QueueHandle *>(pq);
     auto *clhandle = reinterpret_cast<CommandListHandle *>(pcl);
-    auto *dev = reinterpret_cast<DeviceHandle *>(qhandle->drv_handle);
+    auto *dev = qhandle->dev;
 
     dev->fns.fn_submit(qhandle->queue, clhandle->cmdlist);
 
@@ -168,27 +168,27 @@ API_EXPORT void kes_submit(KesQueue pq, KesCommandList pcl) {
 
 API_EXPORT void kes_cmd_memset(KesCommandList pcl, kes_gpuptr_t addr, size_t size, uint32_t value) {
     auto *clhandle = reinterpret_cast<CommandListHandle *>(pcl);
-    auto *dev = reinterpret_cast<DeviceHandle *>(clhandle->drv_handle);
+    auto *dev = clhandle->dev;
 
     dev->fns.fn_cmd_memset(clhandle->cmdlist, addr, size, value);
 }
 API_EXPORT void kes_cmd_write_timestamp(KesCommandList pcl, kes_gpuptr_t addr) {
     auto *clhandle = reinterpret_cast<CommandListHandle *>(pcl);
-    auto *dev = reinterpret_cast<DeviceHandle *>(clhandle->drv_handle);
+    auto *dev = clhandle->dev;
 
     dev->fns.fn_cmd_write_timestamp(clhandle->cmdlist, addr);
 }
 
 API_EXPORT void kes_cmd_signal_after(KesCommandList pcl, KesStage before, kes_gpuptr_t addr, uint64_t value, KesSignal signal) {
     auto *clhandle = reinterpret_cast<CommandListHandle *>(pcl);
-    auto *dev = reinterpret_cast<DeviceHandle *>(clhandle->drv_handle);
+    auto *dev = clhandle->dev;
 
     dev->fns.fn_cmd_signal_after(clhandle->cmdlist, before, addr, value, signal);
 }
 
 API_EXPORT void kes_cmd_wait_before(KesCommandList pcl, KesStage after, kes_gpuptr_t addr, uint64_t value, KesOp op, KesHazardFlags hazard, uint64_t mask) {
     auto *clhandle = reinterpret_cast<CommandListHandle *>(pcl);
-    auto *dev = reinterpret_cast<DeviceHandle *>(clhandle->drv_handle);
+    auto *dev = clhandle->dev;
 
     dev->fns.fn_cmd_wait_before(clhandle->cmdlist, after, addr, value, op, hazard, mask);
 }
