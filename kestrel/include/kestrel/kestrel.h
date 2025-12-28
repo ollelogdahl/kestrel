@@ -75,7 +75,7 @@ void kes_cmd_memset(KesCommandList, kes_gpuptr_t addr, size_t size, uint32_t val
 void kes_cmd_write_timestamp(KesCommandList, kes_gpuptr_t addr);
 
 void kes_cmd_signal_after(KesCommandList, KesStage before, kes_gpuptr_t addr, uint64_t value, KesSignal);
-void kes_cmd_wait_before(KesCommandList, KesStage after, kes_gpuptr_t addr, uint64_t value, KesOp, KesHazardFlags);
+void kes_cmd_wait_before(KesCommandList, KesStage after, kes_gpuptr_t addr, uint64_t value, KesOp, KesHazardFlags, uint64_t mask);
 
 #ifdef __cplusplus
 }

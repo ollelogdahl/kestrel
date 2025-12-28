@@ -33,7 +33,7 @@ struct CommandListImpl {
 };
 
 extern "C" {
-KesDevice amdgpu_init(int drm_fd);
+KesDevice amdgpu_create(int drm_fd);
 void amdgpu_destroy(KesDevice);
 struct KesAllocation amdgpu_malloc(KesDevice, size_t size, size_t align, KesMemory);
 void amdgpu_free(KesDevice, struct KesAllocation *);
@@ -49,5 +49,5 @@ void amdgpu_cmd_memset(KesCommandList, kes_gpuptr_t addr, size_t size, uint32_t 
 void amdgpu_cmd_write_timestamp(KesCommandList, kes_gpuptr_t addr);
 
 void amdgpu_cmd_signal_after(KesCommandList, KesStage before, kes_gpuptr_t addr, uint64_t value, KesSignal);
-void amdgpu_cmd_wait_before(KesCommandList, KesStage after, kes_gpuptr_t addr, uint64_t value, KesOp, KesHazardFlags);
+void amdgpu_cmd_wait_before(KesCommandList, KesStage after, kes_gpuptr_t addr, uint64_t value, KesOp, KesHazardFlags, uint64_t mask);
 }

@@ -35,6 +35,7 @@ function(add_kestrel_driver DRIVER_NAME)
             -static-libgcc
             -Wl,--gc-sections
             -Wl,--exclude-libs,ALL
+            -Wl,--no-undefined
         >
     )
 

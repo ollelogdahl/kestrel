@@ -6,7 +6,7 @@ set(DOXYGEN_GENERATE_XML YES)
 set(DOXYGEN_XML_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/xml")
 
 doxygen_add_docs(doxygen_xml
-    "${PROJECT_SOURCE_DIR}/libvektor/include"
+    "${PROJECT_SOURCE_DIR}/kestrel/include"
     COMMENT "Generating XML API data with Doxygen"
 )
 

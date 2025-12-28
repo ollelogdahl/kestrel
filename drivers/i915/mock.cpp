@@ -1,7 +1,7 @@
 #include "impl.h"
 
 API_EXPORT KesDevice i915_init(int drm_fd) {
-    return nullptr;
+    return (KesDevice)0x1;
 }
 
 API_EXPORT void i915_destroy(KesDevice) {
@@ -43,6 +43,6 @@ API_EXPORT void i915_cmd_signal_after(KesCommandList, KesStage before, kes_gpupt
 
 }
 
-API_EXPORT void i915_cmd_wait_before(KesCommandList, KesStage after, kes_gpuptr_t addr, uint64_t value, KesOp, KesHazardFlags) {
+API_EXPORT void i915_cmd_wait_before(KesCommandList, KesStage after, kes_gpuptr_t addr, uint64_t value, KesOp, KesHazardFlags, uint64_t) {
 
 }

@@ -179,16 +179,16 @@ API_EXPORT void kes_cmd_write_timestamp(KesCommandList pcl, kes_gpuptr_t addr) {
     dev->fns.fn_cmd_write_timestamp(clhandle->cmdlist, addr);
 }
 
-API_EXPORT void kes_cmd_signal_after(KesCommandList pcl, KesStage before, kes_gpuptr_t addr, uint64_t value, KesSignal) {
+API_EXPORT void kes_cmd_signal_after(KesCommandList pcl, KesStage before, kes_gpuptr_t addr, uint64_t value, KesSignal signal) {
     auto *clhandle = reinterpret_cast<CommandListHandle *>(pcl);
     auto *dev = reinterpret_cast<DeviceHandle *>(clhandle->drv_handle);
 
-    dev->fns.fn_cmd_signal_after(clhandle->cmdlist, before, addr, value, KesSignalAtomicSet);
+    dev->fns.fn_cmd_signal_after(clhandle->cmdlist, before, addr, value, signal);
 }
 
-API_EXPORT void kes_cmd_wait_before(KesCommandList pcl, KesStage after, kes_gpuptr_t addr, uint64_t value, KesOp, KesHazardFlags) {
+API_EXPORT void kes_cmd_wait_before(KesCommandList pcl, KesStage after, kes_gpuptr_t addr, uint64_t value, KesOp op, KesHazardFlags hazard, uint64_t mask) {
     auto *clhandle = reinterpret_cast<CommandListHandle *>(pcl);
     auto *dev = reinterpret_cast<DeviceHandle *>(clhandle->drv_handle);
 
-    dev->fns.fn_cmd_wait_before(clhandle->cmdlist, after, addr, value, KesOpNever, KesHazardFlagsNone);
+    dev->fns.fn_cmd_wait_before(clhandle->cmdlist, after, addr, value, op, hazard, mask);
 }

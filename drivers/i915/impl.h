@@ -19,5 +19,5 @@ void i915_cmd_memset(KesCommandList, kes_gpuptr_t addr, size_t size, uint32_t va
 void i915_cmd_write_timestamp(KesCommandList, kes_gpuptr_t addr);
 
 void i915_cmd_signal_after(KesCommandList, KesStage before, kes_gpuptr_t addr, uint64_t value, KesSignal);
-void i915_cmd_wait_before(KesCommandList, KesStage after, kes_gpuptr_t addr, uint64_t value, KesOp, KesHazardFlags);
+void i915_cmd_wait_before(KesCommandList, KesStage after, kes_gpuptr_t addr, uint64_t value, KesOp, KesHazardFlags, uint64_t);
 }

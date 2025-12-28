@@ -25,7 +25,7 @@ std::string amdgpu_family_str(uint32_t family) {
     return "???";
 }
 
-API_EXPORT KesDevice amdgpu_init(int drm_fd) {
+KesDevice amdgpu_create(int drm_fd) {
     auto dev = new DeviceImpl;
     dev->fd = drm_fd;
 
@@ -72,4 +72,13 @@ API_EXPORT KesDevice amdgpu_init(int drm_fd) {
     }
 
     return (KesDevice)dev;
+}
+
+void amdgpu_destroy(KesDevice pd) {
+    auto *dev = reinterpret_cast<DeviceImpl *>(pd);
+    if (dev) {
+        amdgpu_device_deinitialize(dev->amd_handle);
+        dev->amd_handle = nullptr;
+        delete dev;
+    }
 }

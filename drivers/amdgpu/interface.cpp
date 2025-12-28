@@ -6,7 +6,7 @@
 
 API_EXPORT void kes_drv_interface(struct KesDriverFuncs *fns) {
     fns->version = KESDRV_AMDGPU_VERSION_NUM;
-    fns->fn_create = amdgpu_init;
+    fns->fn_create = amdgpu_create;
     fns->fn_destroy = amdgpu_destroy;
     fns->fn_malloc = amdgpu_malloc;
     fns->fn_free = amdgpu_free;

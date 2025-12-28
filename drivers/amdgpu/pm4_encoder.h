@@ -4,13 +4,6 @@
 #include <vector>
 
 #include "gpuinfo.h"
-// #include "pm4.h"
-
-// @todo: consider redesigning this..
-// instead of having multiple CmdStream types; let a commandstream
-// just be some kind of buffer (std::vector). We can rename this
-// to "PM4 Encoder" or something, directly adding to a provided
-// buffer.
 
 class Pm4Encoder {
 public:
