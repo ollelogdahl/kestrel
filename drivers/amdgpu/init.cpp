@@ -29,6 +29,10 @@ KesDevice amdgpu_create(int drm_fd) {
     auto dev = new DeviceImpl;
     dev->fd = drm_fd;
 
+    for (auto i = 0; i < AMDGPU_HW_IP_NUM; ++i) {
+        dev->num_queues[i] = 0;
+    }
+
     uint32_t minor, major;
     if (amdgpu_device_initialize(dev->fd, &major, &minor, &dev->amd_handle) != 0) {
         delete dev;

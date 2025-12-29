@@ -17,10 +17,16 @@ uint32_t hw_ip_type_from_queue_type(KesQueueType qt) {
 KesQueue amdgpu_create_queue(KesDevice pd, KesQueueType qt) {
     auto *dev = reinterpret_cast<DeviceImpl *>(pd);
 
+    auto hw_ip_type = hw_ip_type_from_queue_type(qt);
+
+    assert(dev->num_queues[hw_ip_type] < dev->info.ip[hw_ip_type].num_queues,
+        "amdgpu_create_queue: too many queues created for type: {} (created: {}, max: {})",
+        qt, dev->num_queues[hw_ip_type], dev->info.ip[hw_ip_type].num_queues);
+
     auto queue = new QueueImpl;
     queue->dev = dev;
     queue->type = qt;
-    queue->hw_ip_type = hw_ip_type_from_queue_type(qt);
+    queue->hw_ip_type = hw_ip_type;
 
     // @todo: consider creating ctx at device initialization?
     int r = amdgpu_cs_ctx_create(dev->amd_handle, &queue->ctx_handle);
@@ -28,6 +34,8 @@ KesQueue amdgpu_create_queue(KesDevice pd, KesQueueType qt) {
         delete queue;
         return nullptr;
     }
+
+    dev->num_queues[hw_ip_type]++;
 
     // @todo: cleanup: remove this fkn pointer; shit stuff we don't need!
     auto conf = CommandRing::Config{};
@@ -39,6 +47,9 @@ KesQueue amdgpu_create_queue(KesDevice pd, KesQueueType qt) {
 void amdgpu_destroy_queue(KesQueue pq) {
     auto *queue = reinterpret_cast<QueueImpl *>(pq);
     // @todo: actually delete queue.
+
+    auto hw_ip_type = hw_ip_type_from_queue_type(queue->type);
+    queue->dev->num_queues[hw_ip_type]--;
 }
 
 KesCommandList amdgpu_start_recording(KesQueue pq) {

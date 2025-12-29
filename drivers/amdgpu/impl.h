@@ -14,6 +14,7 @@ struct DeviceImpl {
     int fd;
     amdgpu_device_handle amd_handle;
 
+    uint32_t num_queues[AMDGPU_HW_IP_NUM];
     GpuInfo info;
 };
 
