@@ -6,7 +6,7 @@ related structures, enumerations, and functions.
 
 .. note::
    The API docs are generated from :file:`kestrel/include/kestrel/kestrel.h`.
-   To update this documentation, please edit the header file.
+   To update this documentation, please also edit the header file.
 
 .. toctree::
     :hidden:

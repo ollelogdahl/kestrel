@@ -17,7 +17,7 @@ def get_version_from_header(header_path, macro_name):
         return "Unknown"
     return "Unknown"
 
-project = '@PROJECT_NAME@'
+project = 'kestrel'
 copyright = '@PROJECT_COPYRIGHT@, @PROJECT_AUTHORS@'
 author = '@PROJECT_AUTHORS@'
 
@@ -59,8 +59,8 @@ html_context = {
     "conf_py_path": "/docs/"
 }
 
-breathe_projects = { "@PROJECT_NAME@": "@CMAKE_CURRENT_BINARY_DIR@/xml" }
-breathe_default_project = "@PROJECT_NAME@"
+breathe_projects = { "kestrel": "@CMAKE_CURRENT_BINARY_DIR@/xml" }
+breathe_default_project = "kestrel"
 
 nitpick_ignore = [
     ('cpp:identifier', 'uint64_t'),

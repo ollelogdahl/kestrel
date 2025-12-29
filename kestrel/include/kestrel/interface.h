@@ -6,22 +6,32 @@
 extern "C" {
 #endif
 
+/**
+ * Holds the set of functions exported by the driver, as well as the version.
+ * @sa kes_drv_interface
+ */
 struct KesDriverFuncs {
+    /**
+     * Version
+     */
     uint32_t version;
-    KesDevice (*fn_create)(int drm_fd);
-    typeof(kes_destroy) *fn_destroy;
-    typeof(kes_malloc) *fn_malloc;
-    typeof(kes_free) *fn_free;
-    typeof(kes_create_queue) *fn_create_queue;
-    typeof(kes_destroy_queue) *fn_destroy_queue;
-    typeof(kes_start_recording) *fn_start_recording;
-    typeof(kes_submit) *fn_submit;
-    typeof(kes_cmd_memset) *fn_cmd_memset;
-    typeof(kes_cmd_write_timestamp) *fn_cmd_write_timestamp;
-    typeof(kes_cmd_signal_after) *fn_cmd_signal_after;
-    typeof(kes_cmd_wait_before) *fn_cmd_wait_before;
+    KesDevice          (*fn_create)(int drm_fd);
+    void               (*fn_destroy)(KesDevice);
+    struct KesAllocation (*fn_malloc)(KesDevice, size_t size, size_t align, enum KesMemory);
+    void               (*fn_free)(KesDevice, struct KesAllocation *);
+    KesQueue           (*fn_create_queue)(KesDevice, enum KesQueueType);
+    void               (*fn_destroy_queue)(KesQueue);
+    KesCommandList     (*fn_start_recording)(KesQueue);
+    void               (*fn_submit)(KesQueue, KesCommandList);
+    void               (*fn_cmd_memset)(KesCommandList, kes_gpuptr_t addr, size_t size, uint32_t value);
+    void               (*fn_cmd_write_timestamp)(KesCommandList, kes_gpuptr_t addr);
+    void               (*fn_cmd_signal_after)(KesCommandList, enum KesStage before, kes_gpuptr_t addr, uint64_t value, enum KesSignal);
+    void               (*fn_cmd_wait_before)(KesCommandList, enum KesStage after, kes_gpuptr_t addr, uint64_t value, enum KesOp, enum KesHazardFlags, uint64_t mask);
 };
 
+/**
+ *
+ */
 void kes_drv_interface(struct KesDriverFuncs *fns);
 
 #ifdef __cplusplus

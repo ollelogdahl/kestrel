@@ -1,27 +1,10 @@
-/* docs/_static/custom.css */
-
-/* Target the container that doxygenfile creates */
-.breathe-sectiondef {
-    margin-left: 0px !important;
-    padding-left: 15px;
-    border-left: 2px solid #e1e4e5; /* Subtle vertical line for grouping */
-    margin-bottom: 40px;
+dl.function,
+dl.struct,
+dl.enum,
+dl.type {
+    margin-top: 2em;
+    background-color: #ecf0f3;
 }
-
-/* Style the 'Typedefs', 'Functions', 'Enums' headers */
-.breathe-sectiondef-title {
-    font-family: "Roboto Slab", "ff-tisa-web-pro", "Georgia", serif;
-    font-size: 1.2em;
-    font-weight: bold;
-    color: #333;
-    border-bottom: 1px solid #eee;
-    margin-bottom: 15px;
-    padding-bottom: 5px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-/* The actual function/member blocks */
-.breathe-definition {
-    margin-bottom: 25px !important;
+dt.sig-object {
+    display: block !important;
 }
