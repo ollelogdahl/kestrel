@@ -14,7 +14,8 @@ KesAllocation amdgpu_malloc(KesDevice pd, size_t size, size_t align, KesMemory m
     auto alignment = VEK_HUGE_PAGE_SIZE;
 
     KesAllocation alloc = {};
-    auto *impl = reinterpret_cast<AllocationImpl*>(alloc._internal);
+    auto *impl = new AllocationImpl;
+    alloc._internal = impl;
 
     alloc.size = aligned_size;
     impl->bo = nullptr;
