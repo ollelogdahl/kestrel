@@ -1,5 +1,6 @@
 #pragma once
 
+#include "kestrel.h"
 #include "kestrel/kestrel.h"
 
 #ifdef __cplusplus
@@ -24,6 +25,7 @@ struct KesDriverFuncs {
     KesCommandList     (*fn_start_recording)(KesQueue);
     void               (*fn_submit)(KesQueue, KesCommandList);
     void               (*fn_cmd_memset)(KesCommandList, kes_gpuptr_t addr, size_t size, uint32_t value);
+    void               (*fn_cmd_memcpy)(KesCommandList, kes_gpuptr_t dst, kes_gpuptr_t src, size_t size);
     void               (*fn_cmd_write_timestamp)(KesCommandList, kes_gpuptr_t addr);
     void               (*fn_cmd_signal_after)(KesCommandList, enum KesStage before, kes_gpuptr_t addr, uint64_t value, enum KesSignal);
     void               (*fn_cmd_wait_before)(KesCommandList, enum KesStage after, kes_gpuptr_t addr, uint64_t value, enum KesOp, enum KesHazardFlags, uint64_t mask);

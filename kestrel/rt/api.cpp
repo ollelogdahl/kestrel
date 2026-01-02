@@ -172,6 +172,14 @@ API_EXPORT void kes_cmd_memset(KesCommandList pcl, kes_gpuptr_t addr, size_t siz
 
     dev->fns.fn_cmd_memset(clhandle->cmdlist, addr, size, value);
 }
+
+API_EXPORT void kes_cmd_memcpy(KesCommandList pcl, kes_gpuptr_t dst, kes_gpuptr_t src, size_t size) {
+    auto *clhandle = reinterpret_cast<CommandListHandle *>(pcl);
+    auto *dev = clhandle->dev;
+
+    dev->fns.fn_cmd_memcpy(clhandle->cmdlist, dst, src, size);
+}
+
 API_EXPORT void kes_cmd_write_timestamp(KesCommandList pcl, kes_gpuptr_t addr) {
     auto *clhandle = reinterpret_cast<CommandListHandle *>(pcl);
     auto *dev = clhandle->dev;

@@ -243,6 +243,15 @@ void kes_submit(KesQueue queue, KesCommandList command_list);
 void kes_cmd_memset(KesCommandList command_list, kes_gpuptr_t addr, size_t size, uint32_t value);
 
 /**
+ * Record a memory copy command in the command list.
+ * @param command_list The command list to record the command in.
+ * @param dst The GPU address to copy memory to.
+ * @param src The GPU address to copy memory from.
+ * @param size The size of the copy in bytes.
+ */
+void kes_cmd_memcpy(KesCommandList command_list, kes_gpuptr_t dst, kes_gpuptr_t src, size_t size);
+
+/**
  * Record a timestamp write command in the command list. Writes a 64-bit unsigned timestamp in ticks to the provided address.
  * @param command_list The command list to record the command in.
  * @param addr The GPU address to write the timestamp to.
