@@ -15,6 +15,7 @@ API_EXPORT void kes_drv_interface(struct KesDriverFuncs *fns) {
     fns->fn_start_recording = amdgpu_start_recording;
     fns->fn_submit = amdgpu_submit;
     fns->fn_cmd_memset = amdgpu_cmd_memset;
+    fns->fn_cmd_memcpy = amdgpu_cmd_memcpy;
     fns->fn_cmd_write_timestamp = amdgpu_cmd_write_timestamp;
     fns->fn_cmd_signal_after = amdgpu_cmd_signal_after;
     fns->fn_cmd_wait_before = amdgpu_cmd_wait_before;

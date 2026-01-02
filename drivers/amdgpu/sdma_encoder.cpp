@@ -86,3 +86,32 @@ uint64_t SDMAEncoder::constant_fill(uint64_t va, uint64_t size, uint32_t value) 
 
     return bytes_written;
 }
+
+uint64_t SDMAEncoder::copy_linear(uint64_t src_va, uint64_t dst_va, uint64_t size, bool tmz) {
+    const unsigned max_size_per_packet =
+       info.sdma_version >= SDMAVersion::SDMA_5_2 ? SDMA_V5_2_COPY_MAX_BYTES : SDMA_V2_0_COPY_MAX_BYTES;
+    uint32_t align = ~0u;
+
+    /* SDMA FW automatically enables a faster dword copy mode when
+     * source, destination and size are all dword-aligned.
+     *
+     * When source and destination are dword-aligned, round down the size to
+     * take advantage of faster dword copy, and copy the remaining few bytes
+     * with the last copy packet.
+     */
+    if ((src_va & 0x3) == 0 && (dst_va & 0x3) == 0 && size > 4 && (size & 0x3) != 0) {
+       align = ~0x3u;
+    }
+
+    const uint64_t bytes_written = size >= 4 ? MIN2(size & align, max_size_per_packet) : size;
+
+    cs.emit(SDMA_PACKET(SDMA_OPCODE_COPY, SDMA_COPY_SUB_OPCODE_LINEAR, (tmz ? 4 : 0)));
+    cs.emit(info.sdma_version >= SDMAVersion::SDMA_4_0 ? bytes_written - 1 : bytes_written);
+    cs.emit(0);
+    cs.emit(src_va);
+    cs.emit(src_va >> 32);
+    cs.emit(dst_va);
+    cs.emit(dst_va >> 32);
+
+    return bytes_written;
+}

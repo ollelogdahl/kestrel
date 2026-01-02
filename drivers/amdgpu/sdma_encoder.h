@@ -30,6 +30,7 @@ public:
 
     // returns the number of bytes written; may need to be repeated.
     uint64_t constant_fill(uint64_t va, uint64_t size, uint32_t value);
+    uint64_t copy_linear(uint64_t src_va, uint64_t dst_va, uint64_t size, bool tmz);
 private:
     GpuInfo &info;
     CommandStream &cs;

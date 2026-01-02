@@ -28,6 +28,33 @@ void amdgpu_cmd_memset(KesCommandList pcl, kes_gpuptr_t addr, std::size_t size, 
     }
 }
 
+void memcpy_transfer(CommandListImpl *impl, kes_gpuptr_t dst, kes_gpuptr_t src, std::size_t size) {
+    assert(impl->queue->type == KesQueueTypeTransfer, "memcpy_transfer: requires queue of Transfer type");
+
+    SDMAEncoder enc(impl->queue->dev->info, impl->cs);
+
+    // @todo: tmz?
+    while (size > 0) {
+        uint64_t bytes_written = enc.copy_linear(src, dst, size, false);
+        size -= bytes_written;
+        src += bytes_written;
+        dst += bytes_written;
+    }
+}
+
+void amdgpu_cmd_memcpy(KesCommandList pcl, kes_gpuptr_t dst, kes_gpuptr_t src, size_t size) {
+    auto *cl = reinterpret_cast<CommandListImpl *>(pcl);
+    assert(cl, "memcpy: command list handle invalid: {}", (void *)pcl);
+
+    switch(cl->queue->type) {
+    case KesQueueTypeTransfer:
+        memcpy_transfer(cl, dst, src, size);
+        break;
+    default:
+        not_implemented("memcpy: not implemented for queue type: {}", cl->queue->type);
+    }
+}
+
 SDMAAtomicOp sdma_atomic_op_map(KesSignal sig) {
     switch(sig) {
     case KesSignalAtomicSet:

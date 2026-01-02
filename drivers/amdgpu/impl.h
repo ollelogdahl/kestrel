@@ -47,6 +47,7 @@ KesCommandList amdgpu_start_recording(KesQueue);
 void amdgpu_submit(KesQueue, KesCommandList);
 
 void amdgpu_cmd_memset(KesCommandList, kes_gpuptr_t addr, size_t size, uint32_t value);
+void amdgpu_cmd_memcpy(KesCommandList, kes_gpuptr_t dst, kes_gpuptr_t src, size_t size);
 void amdgpu_cmd_write_timestamp(KesCommandList, kes_gpuptr_t addr);
 
 void amdgpu_cmd_signal_after(KesCommandList, KesStage before, kes_gpuptr_t addr, uint64_t value, KesSignal);
