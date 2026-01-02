@@ -24,6 +24,9 @@ DRM (Direct Rendering Manager):
 - *CS*: Command Stream
 
 .. toctree::
+    bugs
+
+.. toctree::
     :maxdepth: 1
     :caption: Links
 
