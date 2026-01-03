@@ -7,16 +7,12 @@
 #include "sid.h"
 #include <amdgpu_drm.h>
 
-Pm4Encoder::Pm4Encoder(GpuInfo &info, uint8_t ip_type) : info(info), ip_type(ip_type) {
+Pm4Encoder::Pm4Encoder(GpuInfo &info, uint8_t ip_type, CommandStream &cs) : info(info), ip_type(ip_type), cs(cs) {
 
 }
 
 void Pm4Encoder::emit(uint32_t value) {
-    buf.push_back(value);
-}
-
-void Pm4Encoder::emit(std::span<uint32_t> values) {
-    buf.insert(buf.end(), values.begin(), values.end());
+    cs.emit(value);
 }
 
 void Pm4Encoder::set_reg_seq(uint32_t reg, uint32_t num, uint32_t idx, uint32_t bank_offset, uint32_t bank_end, uint32_t packet, uint32_t reset_filter_cam) {

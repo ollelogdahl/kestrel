@@ -3,14 +3,14 @@
 #include <span>
 #include <vector>
 
+#include "cmdstream.h"
 #include "gpuinfo.h"
 
 class Pm4Encoder {
 public:
-    Pm4Encoder(GpuInfo &info, uint8_t ip_type);
+    Pm4Encoder(GpuInfo &info, uint8_t ip_type, CommandStream &cs);
 
     void emit(uint32_t value);
-    void emit(std::span<uint32_t> values);
 
     void emit_32bit_pointer(uint32_t sh_offset, uint64_t va);
     void emit_64bit_pointer(uint32_t sh_offset, uint64_t va);
@@ -49,7 +49,7 @@ private:
 
     GpuInfo &info;
     uint8_t ip_type;
+    CommandStream &cs;
 
-    std::vector<uint32_t> buf;
     bool context_roll;
 };

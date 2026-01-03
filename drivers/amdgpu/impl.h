@@ -52,4 +52,8 @@ void amdgpu_cmd_write_timestamp(KesCommandList, kes_gpuptr_t addr);
 
 void amdgpu_cmd_signal_after(KesCommandList, KesStage before, kes_gpuptr_t addr, uint64_t value, KesSignal);
 void amdgpu_cmd_wait_before(KesCommandList, KesStage after, kes_gpuptr_t addr, uint64_t value, KesOp, KesHazardFlags, uint64_t mask);
+void amdgpu_cmd_dispatch(KesCommandList pcl, uint32_t x, uint32_t y, uint32_t z);
+void amdgpu_cmd_dispatch_indirect(KesCommandList pcl, uint64_t indirect_addr);
 }
+
+uint32_t hw_ip_type_from_queue_type(KesQueueType qt);

@@ -19,4 +19,6 @@ API_EXPORT void kes_drv_interface(struct KesDriverFuncs *fns) {
     fns->fn_cmd_write_timestamp = amdgpu_cmd_write_timestamp;
     fns->fn_cmd_signal_after = amdgpu_cmd_signal_after;
     fns->fn_cmd_wait_before = amdgpu_cmd_wait_before;
+    fns->fn_cmd_dispatch = amdgpu_cmd_dispatch;
+    fns->fn_cmd_dispatch_indirect = amdgpu_cmd_dispatch_indirect;
 }
