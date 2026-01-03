@@ -280,6 +280,33 @@ void kes_cmd_signal_after(KesCommandList command_list, enum KesStage before, kes
  */
 void kes_cmd_wait_before(KesCommandList command_list, enum KesStage after, kes_gpuptr_t addr, uint64_t value, enum KesOp op, enum KesHazardFlags hazard_flags, uint64_t mask);
 
+/**
+ * Contains arguments for a compute shader dispatch.
+ */
+struct KesDispatchIndirectCommand {
+    uint32_t x;
+    uint32_t y;
+    uint32_t z;
+};
+
+/**
+ * Record a compute shader dispatch in the command list.
+ * @param command_list
+ * @param x
+ * @param y
+ * @param z
+ */
+void kes_cmd_dispatch(KesCommandList command_list, uint32_t x, uint32_t y, uint32_t z);
+
+/**
+ * Record an indirect compute shader dispatch in the command list.
+ * @param command_list The command list to record the command in.
+ * @param command_addr A GPU pointer to a KesDispatchIndirectCommand
+ * @sa KesDispatchIndirectCommand
+ */
+void kes_cmd_dispatch_indirect(KesCommandList command_list, kes_gpuptr_t command_addr);
+
+
 #ifdef __cplusplus
 }
 #endif

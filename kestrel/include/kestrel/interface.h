@@ -29,6 +29,8 @@ struct KesDriverFuncs {
     void               (*fn_cmd_write_timestamp)(KesCommandList, kes_gpuptr_t addr);
     void               (*fn_cmd_signal_after)(KesCommandList, enum KesStage before, kes_gpuptr_t addr, uint64_t value, enum KesSignal);
     void               (*fn_cmd_wait_before)(KesCommandList, enum KesStage after, kes_gpuptr_t addr, uint64_t value, enum KesOp, enum KesHazardFlags, uint64_t mask);
+    void               (*fn_cmd_dispatch)(KesCommandList command_list, uint32_t x, uint32_t y, uint32_t z);
+    void               (*fn_cmd_dispatch_indirect)(KesCommandList command_list, kes_gpuptr_t command_addr);
 };
 
 /**

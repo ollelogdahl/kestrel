@@ -23,6 +23,25 @@ DRM (Direct Rendering Manager):
 - *IB*: Indirect Buffer: Allocated on BO, can be submitted to a HW_IP.
 - *CS*: Command Stream
 
+
+AMD (& afaik NV) support predication in multiple ways. In AMD, we can both skip over commands in the CP, but also
+many packets can read from the predication register. Skipping commands is done for arbitrary va atomic ops (i believe),
+and the register is for stuff like DRAW_VISIBLE. I believe it would be awesome to support an api like::
+
+    auto x = kes_malloc(dev, size, 4, KesMemoryDefault);
+    auto pred = kes_malloc(dev, 1, 4, KesMemoryDefault);
+
+    auto l1 = kes_start_recording(compute);
+
+    kes_cmd_conditional_begin(l1, pred, KesCondOpEqual);
+    kes_cmd_memset(l1, x.gpu, size, 2);
+    kes_cmd_memcpy(l1, y.gpu, x.gpu, size);
+    kes_cmd_conditional_end(l1);
+
+    kes_submit(compute, l1);
+
+This would be awesome, as it would actually expose this stuff without weird extensions like VK_conditional_rendering.
+
 .. toctree::
     bugs
 
