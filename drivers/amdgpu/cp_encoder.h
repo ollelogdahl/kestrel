@@ -1,0 +1,26 @@
+#pragma once
+
+#include "cmdstream.h"
+#include "gpuinfo.h"
+#include "impl.h"
+
+/**
+ * Command Processor command encoder
+ */
+class CPEncoder {
+public:
+    CPEncoder(GpuInfo &info, uint8_t ip_type, CommandStream &cs);
+
+    void wait_mem(WaitMemOp op, uint64_t va, uint32_t ref, uint32_t mask);
+
+    void release_mem(uint32_t event,
+        uint32_t event_flags, uint32_t dst_sel,
+        uint32_t int_sel, uint32_t data_sel, uint64_t va,
+        uint32_t new_fence);
+
+    void atomic_mem(AtomicOp op, uint32_t atomic_cmd, uint64_t va, uint64_t data, uint64_t compare_data);
+private:
+    GpuInfo &info;
+    uint8_t ip_type;
+    CommandStream &cs;
+};
