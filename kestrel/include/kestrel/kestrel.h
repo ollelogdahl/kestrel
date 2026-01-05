@@ -154,7 +154,11 @@ enum KesStage {
     /**
      * Vertex shader stage.
      */
-    KesStageVertexShader
+    KesStageVertexShader,
+    /**
+     * All (bottom of pipe).
+     */
+    KesStageAll,
 };
 
 /**
