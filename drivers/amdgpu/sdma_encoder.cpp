@@ -49,7 +49,7 @@ void SDMAEncoder::fence(uint64_t va, uint32_t fence) {
 #define SDMA_ATOMIC_CACHE_POLICY(x) ((uint32_t)(x) << 20)
 #define SDMA_ATOMIC_CPV (1u << 24)
 
-void SDMAEncoder::atomic(SDMAAtomicOp op, uint64_t va, uint64_t value) {
+void SDMAEncoder::atomic(AtomicOp op, uint64_t va, uint64_t value) {
     uint32_t cache_policy = SDMA_CACHE_POLICY(SDMA_L2_POLICY_UC, SDMA_LLC_POLICY_BYPASS);
     cs.emit(SDMA_PACKET(SDMA_OPCODE_ATOMIC, 0, 0) | SDMA_ATOMIC_CPV | SDMA_ATOMIC_CACHE_POLICY(cache_policy) | SDMA_ATOMIC_OP(op));
     cs.emit(va);
@@ -61,7 +61,7 @@ void SDMAEncoder::atomic(SDMAAtomicOp op, uint64_t va, uint64_t value) {
     cs.emit(0);
 }
 
-void SDMAEncoder::wait_mem(SDMAWaitMemOp op, uint64_t va, uint32_t ref, uint32_t mask) {
+void SDMAEncoder::wait_mem(WaitMemOp op, uint64_t va, uint32_t ref, uint32_t mask) {
     uint32_t cache_policy = SDMA_CACHE_POLICY(SDMA_L2_POLICY_UC, SDMA_LLC_POLICY_BYPASS);
     cs.emit(
         SDMA_PACKET(SDMA_OPCODE_POLL_REGMEM, 0, 0) | (uint32_t)op << 28 | SDMA_POLL_MEM

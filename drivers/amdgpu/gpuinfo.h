@@ -2,12 +2,31 @@
 
 #include <cstdint>
 
+#include "sid.h"
 #include "amdgpu_drm.h"
+
+enum class WaitMemOp {
+    Equal = WAIT_REG_MEM_EQUAL,
+    NotEqual = WAIT_REG_MEM_NOT_EQUAL,
+    GreaterOrEqual = WAIT_REG_MEM_GREATER_OR_EQUAL,
+};
+
+enum class AtomicOp {
+    Swap = 0x67,
+    Add = 0x6f,
+    Sub = 0x70,
+    UMin = 0x72,
+    UMax = 0x74,
+    Or = 0x76,
+};
 
 enum class GfxLevel {
     GFX9,
     GFX10,
-    GFX10_3
+    GFX10_3,
+    GFX11,
+    GFX11_5,
+    GFX12,
 };
 
 #define SDMA_VERSION_VALUE(major, minor) (((major) << 8) | (minor))

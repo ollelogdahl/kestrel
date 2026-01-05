@@ -1,3 +1,4 @@
+#include "cp_encoder.h"
 #include "gpuinfo.h"
 #include "kestrel/kestrel.h"
 #include "impl.h"
@@ -62,23 +63,23 @@ void amdgpu_cmd_memcpy(KesCommandList pcl, kes_gpuptr_t dst, kes_gpuptr_t src, s
     }
 }
 
-SDMAAtomicOp sdma_atomic_op_map(KesSignal sig) {
+AtomicOp atomic_op_map(KesSignal sig) {
     switch(sig) {
     case KesSignalAtomicSet:
-        return SDMAAtomicOp::Swap;
+        return AtomicOp::Swap;
     case KesSignalAtomicMax:
-        return SDMAAtomicOp::UMax;
+        return AtomicOp::UMax;
     case KesSignalAtomicOr:
-        return SDMAAtomicOp::Or;
+        return AtomicOp::Or;
     default:
     not_implemented("sdma_atomic_op_map: no mapping for {}", sig);
     }
 }
 
-SDMAWaitMemOp sdma_waitmem_op_map(KesOp op) {
+WaitMemOp waitmem_op_map(KesOp op) {
     switch(op) {
     case KesOpEqual:
-        return SDMAWaitMemOp::Equal;
+        return WaitMemOp::Equal;
     default:
         not_implemented("sdma_waitmem_op_map: no mapping for {}", op);
     }
@@ -86,13 +87,25 @@ SDMAWaitMemOp sdma_waitmem_op_map(KesOp op) {
 
 void wait_before_transfer(CommandListImpl *impl, kes_gpuptr_t ptr, uint64_t value, KesOp op, uint64_t mask) {
     assert(impl->queue->type == KesQueueTypeTransfer, "wait_before_transfer: requires queue of Transfer type");
-
     SDMAEncoder enc(impl->queue->dev->info, impl->cs);
 
-    auto func = sdma_waitmem_op_map(op);
+    auto func = waitmem_op_map(op);
 
-    // @todo: NOTE: this only writes the low 32-bits of value. I do not know how we should do this, it
+    // @todo: NOTE: this only reads the low 32-bits of value. I do not know how we should do this, it
     // seems the hardware doesn't support this.
+    enc.wait_mem(func, ptr, value & 0xFFFFFFFF, mask & 0xFFFFFFFF);
+}
+
+void wait_before_gcs(CommandListImpl *impl, kes_gpuptr_t ptr, uint64_t value, KesOp op, uint64_t mask) {
+    assert(impl->queue->type == KesQueueTypeGraphics || impl->queue->type == KesQueueTypeCompute,
+        "wait_before_gcs: requires Graphics or Compute queue");
+    CPEncoder enc(impl->queue->dev->info, impl->queue->hw_ip_type, impl->cs);
+
+    auto func = waitmem_op_map(op);
+
+    // @todo: NOTE: this only reads the low 32-bits of value. I do not know how we should do this, it
+    // seems the hardware doesn't support this.
+
     enc.wait_mem(func, ptr, value & 0xFFFFFFFF, mask & 0xFFFFFFFF);
 }
 
@@ -104,27 +117,92 @@ void amdgpu_cmd_wait_before(KesCommandList pcl, KesStage after, kes_gpuptr_t ptr
     case KesQueueTypeTransfer:
         wait_before_transfer(cl, ptr, value, op, mask);
         break;
+    case KesQueueTypeCompute:
+    case KesQueueTypeGraphics:
+        wait_before_gcs(cl, ptr, value, op, mask);
+        break;
     default:
         not_implemented("wait_before: not implemented for queue type: {}", cl->queue->type);
     }
 }
 
-void signal_after_transfer(CommandListImpl *impl, kes_gpuptr_t ptr, uint64_t value, KesSignal sig) {
+void signal_after_transfer(CommandListImpl *impl, KesStage before, kes_gpuptr_t ptr, uint64_t value, KesSignal sig) {
     assert(impl->queue->type == KesQueueTypeTransfer, "signal_after_transfer: requires queue of Transfer type");
     SDMAEncoder enc(impl->queue->dev->info, impl->cs);
 
-    auto op = sdma_atomic_op_map(sig);
+    // @todo: how do we await before? I guess in some ways, it doesn't make sense.
+    // MESA does a nop, as a nop ensures that all prev sdma transfers are finished.
+
+    auto op = atomic_op_map(sig);
 
     enc.atomic(op, ptr, value);
+}
+
+void signal_after_gcs(CommandListImpl *impl, KesStage before, kes_gpuptr_t ptr, uint64_t value, KesSignal sig) {
+    assert(impl->queue->type == KesQueueTypeGraphics || impl->queue->type == KesQueueTypeCompute,
+        "signal_after_gcs: requires Graphics or Compute queue");
+
+    CPEncoder enc(impl->queue->dev->info, impl->queue->hw_ip_type, impl->cs);
+
+    // @todo: ensure this is correct and stuff.
+    uint32_t event_type;
+    if (before == KesStagePixelShader) {
+        event_type = V_028A90_PS_DONE;
+        assert(impl->queue->type == KesQueueTypeGraphics, "signal_after_gcs: PS_DONE only valid on graphics queue");
+    } else if (before == KesStageCompute) {
+        event_type = V_028A90_CS_DONE;
+    } else {
+        event_type = V_028A90_BOTTOM_OF_PIPE_TS;
+    }
+
+    // signaling with atomic set is more efficient and handled as an edge case
+    // release mem can actually set a value atomically.
+    if (sig == KesSignalAtomicSet) {
+        enc.release_mem(
+            event_type,
+            0,
+            EOP_DST_SEL_MEM,
+            EOP_INT_SEL_SEND_DATA_AFTER_WR_CONFIRM,
+            EOP_DATA_SEL_VALUE_32BIT,
+            ptr,
+            (uint32_t)value
+        );
+    } else {
+        // first wait for the barrier event, then perform atomic op.
+        enc.release_mem(
+            event_type,
+            0,
+            EOP_DST_SEL_MEM,
+            EOP_INT_SEL_NONE,
+            EOP_DATA_SEL_DISCARD,
+            0,
+            0
+        );
+        auto op = atomic_op_map(sig);
+        enc.atomic_mem(
+            op,
+            ATOMIC_COMMAND_LOOP,
+            ptr,
+            value,
+            0  // compare_data (unused for most ops)
+        );
+    }
 }
 
 void amdgpu_cmd_signal_after(KesCommandList pcl, KesStage before, kes_gpuptr_t ptr, uint64_t value, KesSignal sig) {
     auto *cl = reinterpret_cast<CommandListImpl *>(pcl);
     assert(cl, "signal_after: command list handle invalid: {}", (void *)pcl);
 
+    // @todo: the signaling (atomic write) on transfer queue skips over caching. On Compute/Gfx, it works differently.
+    // we need to ensure that we emit the proper cache flushing before writing the value.
+
     switch(cl->queue->type) {
     case KesQueueTypeTransfer:
-        signal_after_transfer(cl, ptr, value, sig);
+        signal_after_transfer(cl, before, ptr, value, sig);
+        break;
+    case KesQueueTypeCompute:
+    case KesQueueTypeGraphics:
+        signal_after_gcs(cl, before, ptr, value, sig);
         break;
     default:
         not_implemented("wait_before: not implemented for queue type: {}", cl->queue->type);
@@ -138,6 +216,21 @@ void write_timestamp_transfer(CommandListImpl *impl, kes_gpuptr_t ptr) {
     enc.write_timestamp(ptr);
 }
 
+void write_timestamp_gcs(CommandListImpl *impl, kes_gpuptr_t ptr) {
+    assert(impl->queue->type == KesQueueTypeGraphics || impl->queue->type == KesQueueTypeCompute,
+        "write_timestamp_gcs: requires Graphics or Compute queue");
+    CPEncoder enc(impl->queue->dev->info, impl->queue->hw_ip_type, impl->cs);
+
+    // @todo: handle TopOfPipe in a special way (see mesa radv_write_timestamp).
+    enc.release_mem(
+        V_028A90_BOTTOM_OF_PIPE_TS,
+        0,
+        EOP_DST_SEL_MEM,
+        EOP_INT_SEL_SEND_DATA_AFTER_WR_CONFIRM,
+        EOP_DATA_SEL_TIMESTAMP, ptr,
+        0);
+}
+
 void amdgpu_cmd_write_timestamp(KesCommandList pcl, kes_gpuptr_t ptr) {
     auto *cl = reinterpret_cast<CommandListImpl *>(pcl);
     assert(cl, "write_timestamp: command list handle invalid: {}", (void *)pcl);
@@ -145,6 +238,10 @@ void amdgpu_cmd_write_timestamp(KesCommandList pcl, kes_gpuptr_t ptr) {
     switch(cl->queue->type) {
     case KesQueueTypeTransfer:
         write_timestamp_transfer(cl, ptr);
+        break;
+    case KesQueueTypeCompute:
+    case KesQueueTypeGraphics:
+        write_timestamp_gcs(cl, ptr);
         break;
     default:
         not_implemented("write_timestamp: not implemented for queue type: {}", cl->queue->type);
