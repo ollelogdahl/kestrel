@@ -36,6 +36,7 @@ void device_register_allocation(DeviceImpl *impl, amdgpu_bo_handle bo) {
 KesDevice amdgpu_create(int drm_fd) {
     auto dev = new DeviceImpl;
     dev->fd = drm_fd;
+    dev->global_residency_list = nullptr;
 
     for (auto i = 0; i < AMDGPU_HW_IP_NUM; ++i) {
         dev->num_queues[i] = 0;

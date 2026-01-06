@@ -1,9 +1,9 @@
 #include "cp_encoder.h"
 #include "cmdstream.h"
 #include "gpuinfo.h"
-#include <cassert>
+#include "beta.h"
 
-CPEncoder::CPEncoder(GpuInfo &info, uint8_t ip_type, CommandStream &cs) : info(info), ip_type(ip_type), cs(cs) {}
+CPEncoder::CPEncoder(GpuInfo &info, uint8_t ip_type, CommandStream &cs) : info(info), ip_type(ip_type), cs(cs), m_pm4(info, ip_type, cs) {}
 
 void CPEncoder::nop(uint32_t count, uint32_t *content) {
     assert(count > 0, "CPEncoder::nop: count must always be >= 1");

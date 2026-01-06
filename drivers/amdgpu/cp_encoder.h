@@ -3,6 +3,7 @@
 #include "cmdstream.h"
 #include "gpuinfo.h"
 #include "impl.h"
+#include "pm4_encoder.h"
 
 /**
  * Command Processor command encoder
@@ -10,6 +11,8 @@
 class CPEncoder {
 public:
     CPEncoder(GpuInfo &info, uint8_t ip_type, CommandStream &cs);
+
+    Pm4Encoder &pm4() { return m_pm4; }
 
     // nops are variable length; we can write data here if we want
     // (scratch space for example).
@@ -29,4 +32,6 @@ private:
     GpuInfo &info;
     uint8_t ip_type;
     CommandStream &cs;
+
+    Pm4Encoder m_pm4;
 };

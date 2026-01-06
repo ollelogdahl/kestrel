@@ -10,8 +10,8 @@ struct AllocationImpl {
 KesAllocation amdgpu_malloc(KesDevice pd, size_t size, size_t align, KesMemory memory) {
     auto *dev = reinterpret_cast<DeviceImpl *>(pd);
 
-    auto aligned_size = (size + VEK_HUGE_PAGE_SIZE - 1) & ~(VEK_HUGE_PAGE_SIZE - 1);
-    auto alignment = VEK_HUGE_PAGE_SIZE;
+    auto aligned_size = (size + align - 1) & ~(align - 1);
+    auto alignment = align;
 
     KesAllocation alloc = {};
     auto *impl = new AllocationImpl;
