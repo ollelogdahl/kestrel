@@ -39,7 +39,7 @@ KesQueue amdgpu_create_queue(KesDevice pd, KesQueueType qt) {
 
     // @todo: cleanup: remove this fkn pointer; shit stuff we don't need!
     auto conf = CommandRing::Config{};
-    queue->cmd_ring = new CommandRing(dev->amd_handle, queue->ctx_handle, queue->hw_ip_type, conf);
+    queue->cmd_ring = new CommandRing(dev, queue->ctx_handle, queue->hw_ip_type, conf);
 
     return queue;
 }

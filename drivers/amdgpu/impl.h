@@ -10,9 +10,15 @@
 
 #include "common.h"
 
+#include <vector>
+
 struct DeviceImpl {
     int fd;
     amdgpu_device_handle amd_handle;
+
+    amdgpu_bo_list_handle global_residency_list;
+    std::vector<amdgpu_bo_handle> all_bos;
+    bool residency_dirty = true;
 
     uint32_t num_queues[AMDGPU_HW_IP_NUM];
     GpuInfo info;
@@ -55,5 +61,7 @@ void amdgpu_cmd_wait_before(KesCommandList, KesStage after, kes_gpuptr_t addr, u
 void amdgpu_cmd_dispatch(KesCommandList pcl, uint32_t x, uint32_t y, uint32_t z);
 void amdgpu_cmd_dispatch_indirect(KesCommandList pcl, uint64_t indirect_addr);
 }
+
+void device_register_allocation(DeviceImpl *impl, amdgpu_bo_handle bo);
 
 uint32_t hw_ip_type_from_queue_type(KesQueueType qt);

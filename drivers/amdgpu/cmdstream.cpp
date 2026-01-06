@@ -1,5 +1,6 @@
 #include "cmdstream.h"
 
+#include "impl.h"
 #include "beta.h"
 
 void CommandStream::emit(uint32_t x) {
@@ -7,7 +8,7 @@ void CommandStream::emit(uint32_t x) {
     *cursor++ = x;
 }
 
-CommandRing::CommandRing(amdgpu_device_handle dev, amdgpu_context_handle ctx, uint32_t ip_type, Config cfg)
+CommandRing::CommandRing(DeviceImpl *dev, amdgpu_context_handle ctx, uint32_t ip_type, Config cfg)
     : m_dev(dev), m_ctx(ctx), m_ip_type(ip_type), m_cfg(cfg) {
 
     amdgpu_bo_alloc_request req = {
@@ -17,15 +18,19 @@ CommandRing::CommandRing(amdgpu_device_handle dev, amdgpu_context_handle ctx, ui
         .flags = AMDGPU_GEM_CREATE_CPU_ACCESS_REQUIRED | AMDGPU_GEM_CREATE_UNCACHED // Or WC
     };
 
-    amdgpu_bo_alloc(m_dev, &req, &m_bo_handle);
+    amdgpu_bo_alloc(m_dev->amd_handle, &req, &m_bo_handle);
 
     void* ptr;
     amdgpu_bo_cpu_map(m_bo_handle, &ptr);
     m_cpu_map = static_cast<uint32_t*>(ptr);
 
     amdgpu_va_handle va_handle;
-    amdgpu_va_range_alloc(m_dev, amdgpu_gpu_va_range_general, m_cfg.ring_size_bytes, 1, 0, &m_gpu_va, &va_handle, 0);
-    amdgpu_bo_va_op(m_bo_handle, 0, m_cfg.ring_size_bytes, m_gpu_va, AMDGPU_VM_PAGE_READABLE, AMDGPU_VA_OP_MAP);
+    amdgpu_va_range_alloc(m_dev->amd_handle, amdgpu_gpu_va_range_general, m_cfg.ring_size_bytes, 1, 0, &m_gpu_va, &va_handle, 0);
+    amdgpu_bo_va_op(m_bo_handle, 0, m_cfg.ring_size_bytes, m_gpu_va, AMDGPU_VM_PAGE_READABLE | AMDGPU_VM_PAGE_EXECUTABLE, AMDGPU_VA_OP_MAP);
+
+    log("command ring alloc: {} {}", (void *)m_cpu_map, (void *)m_gpu_va);
+
+    device_register_allocation(m_dev, m_bo_handle);
 }
 
 CommandStream CommandRing::begin_recording() {
@@ -62,6 +67,10 @@ void CommandRing::submit(CommandStream& cs) {
     req.ip_type = m_ip_type;
     req.number_of_ibs = 1;
     req.ibs = &ib;
+    if (m_dev->residency_dirty) {
+        req.resources = m_dev->global_residency_list;
+        m_dev->residency_dirty = false;
+    }
 
     auto r = amdgpu_cs_submit(m_ctx, 0, &req, 1);
     if (r != 0) {

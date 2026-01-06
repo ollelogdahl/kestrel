@@ -6,6 +6,8 @@
 #include <amdgpu.h>
 #include <amdgpu_drm.h>
 
+struct DeviceImpl;
+
 class CommandStream {
 public:
     void emit(uint32_t);
@@ -28,7 +30,7 @@ public:
         std::size_t stream_size_bytes = 128 * 1024;    // 128KB
     };
 
-    CommandRing(amdgpu_device_handle dev, amdgpu_context_handle ctx, uint32_t ip_type, Config cfg);
+    CommandRing(DeviceImpl *dev, amdgpu_context_handle ctx, uint32_t ip_type, Config cfg);
     ~CommandRing();
 
     CommandRing(const CommandRing&) = delete;
@@ -45,7 +47,7 @@ private:
 
     void wait_for_space(uint32_t target_dw_offset);
 
-    amdgpu_device_handle  m_dev;
+    DeviceImpl *m_dev;
     amdgpu_context_handle m_ctx;
     uint32_t              m_ip_type;
     Config                m_cfg;

@@ -25,6 +25,14 @@ std::string amdgpu_family_str(uint32_t family) {
     return "???";
 }
 
+void device_register_allocation(DeviceImpl *impl, amdgpu_bo_handle bo) {
+    impl->all_bos.push_back(bo);
+    impl->residency_dirty = true;
+
+    if (impl->global_residency_list) amdgpu_bo_list_destroy(impl->global_residency_list);
+    amdgpu_bo_list_create(impl->amd_handle, impl->all_bos.size(), impl->all_bos.data(), NULL, &impl->global_residency_list);
+}
+
 KesDevice amdgpu_create(int drm_fd) {
     auto dev = new DeviceImpl;
     dev->fd = drm_fd;

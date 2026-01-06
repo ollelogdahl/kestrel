@@ -43,8 +43,6 @@ KesAllocation amdgpu_malloc(KesDevice pd, size_t size, size_t align, KesMemory m
     // some systems (DCE) require contiguous addresses as they don't use the MMU Infinity Cache.
     // req.flags |= AMDGPU_GEM_CREATE_VRAM_CONTIGUOUS;
 
-    log("bo alloc: size: {} align: {}", aligned_size, alignment);
-
     if (amdgpu_bo_alloc(dev->amd_handle, &req, &impl->bo) != 0) {
         log("amdgpu_bo_alloc failed");
         return alloc;
@@ -87,6 +85,8 @@ KesAllocation amdgpu_malloc(KesDevice pd, size_t size, size_t align, KesMemory m
             return alloc;
         }
     }
+
+    device_register_allocation(dev, impl->bo);
 
     return alloc;
 }
