@@ -201,16 +201,16 @@ API_EXPORT void kes_cmd_wait_before(KesCommandList pcl, KesStage after, kes_gpup
     dev->fns.fn_cmd_wait_before(clhandle->cmdlist, after, addr, value, op, hazard, mask);
 }
 
-API_EXPORT void kes_cmd_dispatch(KesCommandList pcl, uint32_t x, uint32_t y, uint32_t z) {
+API_EXPORT void kes_cmd_dispatch(KesCommandList pcl, kes_gpuptr_t data, uint32_t x, uint32_t y, uint32_t z) {
     auto *clhandle = reinterpret_cast<CommandListHandle *>(pcl);
     auto *dev = clhandle->dev;
 
-    dev->fns.fn_cmd_dispatch(clhandle->cmdlist, x, y, z);
+    dev->fns.fn_cmd_dispatch(clhandle->cmdlist, data, x, y, z);
 }
 
-API_EXPORT void kes_cmd_dispatch_indirect(KesCommandList pcl, kes_gpuptr_t command_addr) {
+API_EXPORT void kes_cmd_dispatch_indirect(KesCommandList pcl, kes_gpuptr_t data, kes_gpuptr_t command_addr) {
     auto *clhandle = reinterpret_cast<CommandListHandle *>(pcl);
     auto *dev = clhandle->dev;
 
-    dev->fns.fn_cmd_dispatch_indirect(clhandle->cmdlist, command_addr);
+    dev->fns.fn_cmd_dispatch_indirect(clhandle->cmdlist, data, command_addr);
 }

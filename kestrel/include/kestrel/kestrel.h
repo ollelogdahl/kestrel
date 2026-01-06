@@ -295,20 +295,22 @@ struct KesDispatchIndirectCommand {
 
 /**
  * Record a compute shader dispatch in the command list.
- * @param command_list
+ * @param command_list The command list to record the command in.
+ * @param data The GPU data root pointer.
  * @param x
  * @param y
  * @param z
  */
-void kes_cmd_dispatch(KesCommandList command_list, uint32_t x, uint32_t y, uint32_t z);
+void kes_cmd_dispatch(KesCommandList command_list, kes_gpuptr_t data, uint32_t x, uint32_t y, uint32_t z);
 
 /**
  * Record an indirect compute shader dispatch in the command list.
  * @param command_list The command list to record the command in.
+ * @param data The GPU data root pointer.
  * @param command_addr A GPU pointer to a KesDispatchIndirectCommand
  * @sa KesDispatchIndirectCommand
  */
-void kes_cmd_dispatch_indirect(KesCommandList command_list, kes_gpuptr_t command_addr);
+void kes_cmd_dispatch_indirect(KesCommandList command_list, kes_gpuptr_t data, kes_gpuptr_t command_addr);
 
 
 #ifdef __cplusplus
