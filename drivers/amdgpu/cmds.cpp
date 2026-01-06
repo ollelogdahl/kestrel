@@ -296,8 +296,22 @@ struct Shader {
 void init_compute_shader_config(DeviceImpl *dev, Shader &shader) {
 
     // @todo: ultra temporary.
-    auto x = amdgpu_malloc(dev, 1024, 16, KesMemoryDefault);
-    *((uint32_t *)x.cpu) = 0xBF810000; // s_endpgm
+    auto x = amdgpu_malloc(dev, 1024, 256, KesMemoryDefault);
+    uint32_t *pgm = (uint32_t *)x.cpu;
+    auto pgmidx = 0;
+    // pgm[pgmidx++] = 0x24020402; // v_lshlrev_b32 v1, 2, v0
+    // pgm[pgmidx++] = 0x4A020300; // v_add_co_u32 v1, vcc_lo, s0, v1
+    // pgm[pgmidx++] = 0x4A040201; // v_add_co_ci_u32 v2, vcc_lo, s1, 0, vcc_lo
+    // pgm[pgmidx++] = 0xDC500000; // global_store_dword v[1:2], v0, off
+    // pgm[pgmidx++] = 0x00000001;
+    pgm[pgmidx++] = 0xBF810000; // s_endpgm
+
+    // (RDNA ISA Ref. 2.5)
+    for (auto i = 0; i < 64; ++i) {
+        pgm[pgmidx++] = 0xBF9F0000; // s_code_end
+    }
+
+    log("shader code: {} {}", (void *)x.cpu, (void *)x.gpu);
 
     // @todo: temporary
     auto wave_size = 32;
@@ -334,7 +348,8 @@ void init_compute_shader_config(DeviceImpl *dev, Shader &shader) {
 
     shader.config.pgm_rsrc1 =
           S_00B848_VGPRS((num_vgprs - 1) / (wave_size == 32 ? 8 : 4))
-        | S_00B848_DX10_CLAMP(dx10_clamp);
+        | S_00B848_DX10_CLAMP(dx10_clamp)
+        | S_00B128_MEM_ORDERED(true); //always true for gfx10.3
 
     shader.config.pgm_rsrc2 =
           S_00B84C_USER_SGPR(shader.config.user_sgpr_count)
