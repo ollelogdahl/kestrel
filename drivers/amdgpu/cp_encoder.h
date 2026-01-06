@@ -11,6 +11,10 @@ class CPEncoder {
 public:
     CPEncoder(GpuInfo &info, uint8_t ip_type, CommandStream &cs);
 
+    // nops are variable length; we can write data here if we want
+    // (scratch space for example).
+    void nop(uint32_t count = 1, uint32_t *content = nullptr);
+
     void wait_mem(WaitMemOp op, uint64_t va, uint32_t ref, uint32_t mask);
 
     void release_mem(uint32_t event,

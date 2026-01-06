@@ -1,8 +1,23 @@
 #include "cp_encoder.h"
 #include "cmdstream.h"
 #include "gpuinfo.h"
+#include <cassert>
 
 CPEncoder::CPEncoder(GpuInfo &info, uint8_t ip_type, CommandStream &cs) : info(info), ip_type(ip_type), cs(cs) {}
+
+void CPEncoder::nop(uint32_t count, uint32_t *content) {
+    assert(count > 0, "CPEncoder::nop: count must always be >= 1");
+    cs.emit(PKT3(PKT3_NOP, 0, count-1));
+    if (content) {
+        for (auto i = 0; i < count-1; ++i) {
+            cs.emit(content[i]);
+        }
+    } else {
+        for (auto i = 0; i < count-1; ++i) {
+            cs.emit(0);
+        }
+    }
+}
 
 void CPEncoder::wait_mem(WaitMemOp op, uint64_t va, uint32_t ref, uint32_t mask) {
     cs.emit(PKT3(PKT3_WAIT_REG_MEM, 5, 0));
