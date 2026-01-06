@@ -16,8 +16,6 @@ int main(void) {
 
     auto dma = kes_create_queue(dev, KesQueueTypeTransfer);
 
-    sleep(1);
-
     auto l1 = kes_start_recording(dma);
     kes_cmd_memset(l1, x.gpu, size, 2);
     kes_cmd_memcpy(l1, y.gpu, x.gpu, size);

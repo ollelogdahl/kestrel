@@ -11,14 +11,12 @@ int main(void) {
     auto x = kes_malloc(dev, size, 4, KesMemoryDefault);
     auto y = kes_malloc(dev, 8, 4, KesMemoryDefault);
     auto ts = kes_malloc(dev, 8 * 4, 4, KesMemoryDefault);
-    sleep(1);
 
     printf("x: %p (%p) (%llu bytes)\n", x.cpu, x.gpu, x.size);
     printf("y: %p (%p) (%llu bytes)\n", y.cpu, y.gpu, y.size);
 
     auto dma = kes_create_queue(dev, KesQueueTypeTransfer);
     auto compute = kes_create_queue(dev, KesQueueTypeCompute);
-    sleep(1);
 
     auto l1 = kes_start_recording(dma);
     {
@@ -47,7 +45,7 @@ int main(void) {
     sleep(1);
     printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
 
-    // in this case, synch should ensure that t0 <= t1, t1 <= t3, t2 <= t3
+    // in this case, synch should ensure that t0 <= t1 <= t3, t2 <= t3
 
     printf("\n");
     printf("ts0: %lu\n", ((uint64_t *)ts.cpu)[0]);
