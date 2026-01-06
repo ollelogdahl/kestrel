@@ -51,3 +51,11 @@ void CPEncoder::atomic_mem(AtomicOp op, uint32_t atomic_cmd, uint64_t va, uint64
     cs.emit(compare_data >> 32);
     cs.emit(10);                    /* loop interval */
 }
+
+void CPEncoder::cond_exec(uint64_t va, uint32_t count) {
+    cs.emit(PKT3(PKT3_COND_EXEC, 3, 0));
+    cs.emit(va);
+    cs.emit(va >> 32);
+    cs.emit(0);
+    cs.emit(count);
+}

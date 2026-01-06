@@ -19,6 +19,8 @@ public:
         uint32_t new_fence);
 
     void atomic_mem(AtomicOp op, uint32_t atomic_cmd, uint64_t va, uint64_t data, uint64_t compare_data);
+
+    void cond_exec(uint64_t va, uint32_t count);
 private:
     GpuInfo &info;
     uint8_t ip_type;
