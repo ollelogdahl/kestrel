@@ -18,6 +18,8 @@ struct DiscoveryInfo {
     uint32_t vendor_id;
 };
 
+// @todo: more proper discovery, checking.
+// also, consider how kes_create should work (feature-flags, requirements etc).
 std::vector<DiscoveryInfo> discover_gpus() {
     std::vector<DiscoveryInfo> found;
     std::string base_path = "/sys/class/drm";
@@ -57,6 +59,11 @@ struct QueueHandle {
 struct CommandListHandle {
     DeviceHandle *dev;
     KesCommandList cmdlist;
+};
+
+struct SemaphoreHandle {
+    DeviceHandle *dev;
+    KesSemaphore sem;
 };
 
 API_EXPORT KesDevice kes_create() {
@@ -156,12 +163,12 @@ API_EXPORT KesCommandList kes_start_recording(KesQueue pq) {
     return clhandle;
 }
 
-API_EXPORT void kes_submit(KesQueue pq, KesCommandList pcl) {
+API_EXPORT void kes_submit(KesQueue pq, KesCommandList pcl, KesSemaphore semaphore, uint64_t value) {
     auto *qhandle = reinterpret_cast<QueueHandle *>(pq);
     auto *clhandle = reinterpret_cast<CommandListHandle *>(pcl);
     auto *dev = qhandle->dev;
 
-    dev->fns.fn_submit(qhandle->queue, clhandle->cmdlist);
+    dev->fns.fn_submit(qhandle->queue, clhandle->cmdlist, semaphore, value);
 
     delete clhandle;
 }
@@ -213,4 +220,21 @@ API_EXPORT void kes_cmd_dispatch_indirect(KesCommandList pcl, kes_gpuptr_t data,
     auto *dev = clhandle->dev;
 
     dev->fns.fn_cmd_dispatch_indirect(clhandle->cmdlist, data, command_addr);
+}
+
+KesSemaphore kes_create_semaphore(KesDevice pd, uint64_t value) {
+    auto *dev = reinterpret_cast<DeviceHandle *>(pd);
+    auto sem = dev->fns.fn_create_semaphore(dev->drv_handle, value);
+
+    auto *handle = new SemaphoreHandle{};
+    handle->dev = dev;
+    handle->sem = sem;
+    return handle;
+}
+
+int kes_wait_semaphore(KesSemaphore ps, uint64_t value) {
+    auto *handle = reinterpret_cast<SemaphoreHandle *>(ps);
+    auto *dev = handle->dev;
+
+    return dev->fns.fn_wait_semaphore(handle->sem, value);
 }

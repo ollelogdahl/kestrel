@@ -1,3 +1,5 @@
+#include "compiler/compiler.h"
+#include "compiler/gir.h"
 #include "cp_encoder.h"
 #include "gpuinfo.h"
 #include "kestrel/kestrel.h"
@@ -275,6 +277,7 @@ struct ShaderInfo {
     HwStage hw_stage;
     ShaderRegs regs;
 
+    bool ordered;
     uint32_t wave_size;
 };
 
@@ -297,23 +300,18 @@ void init_compute_shader_config(DeviceImpl *dev, Shader &shader) {
 
     // @todo: ultra temporary.
     auto x = amdgpu_malloc(dev, 1024, 256, KesMemoryDefault);
-    uint32_t *pgm = (uint32_t *)x.cpu;
-    auto pgmidx = 0;
-    // pgm[pgmidx++] = 0x24020402; // v_lshlrev_b32 v1, 2, v0
-    // pgm[pgmidx++] = 0x4A020300; // v_add_co_u32 v1, vcc_lo, s0, v1
-    // pgm[pgmidx++] = 0x4A040201; // v_add_co_ci_u32 v2, vcc_lo, s1, 0, vcc_lo
-    // pgm[pgmidx++] = 0xDC500000; // global_store_dword v[1:2], v0, off
-    // pgm[pgmidx++] = 0x00000001;
-    pgm[pgmidx++] = 0xBF810000; // s_endpgm
 
-    // (RDNA ISA Ref. 2.5)
-    for (auto i = 0; i < 64; ++i) {
-        pgm[pgmidx++] = 0xBF9F0000; // s_code_end
+    {
+        gir::IRModule mod;
+        gir::Builder gb(mod);
+
+        gir::rdna2_compile(mod, x.cpu, x.gpu);
     }
 
     log("shader code: {} {}", (void *)x.cpu, (void *)x.gpu);
 
     // @todo: temporary
+    auto ordered = false;
     auto wave_size = 32;
     auto waves_per_threadgroup = 1;
     auto max_waves_per_sh = 0x3FF;
@@ -333,6 +331,7 @@ void init_compute_shader_config(DeviceImpl *dev, Shader &shader) {
     auto num_shared_vgpr_blocks = num_shared_vgprs / 8;
 
     shader.config.user_sgpr_count = num_user_sgprs;
+    shader.info.ordered = ordered;
     shader.info.wave_size = wave_size;
     shader.info.block_size[0] = 32;
     shader.info.block_size[1] = 1;
@@ -353,7 +352,7 @@ void init_compute_shader_config(DeviceImpl *dev, Shader &shader) {
 
     shader.config.pgm_rsrc2 =
           S_00B84C_USER_SGPR(shader.config.user_sgpr_count)
-        | S_00B22C_USER_SGPR_MSB_GFX10(num_user_sgprs >> 5)
+        | S_00B22C_USER_SGPR_MSB_GFX10(shader.config.user_sgpr_count >> 5)
         | S_00B12C_SCRATCH_EN(scratch_enabled)
         | S_00B12C_TRAP_PRESENT(trap_present)
         | S_00B84C_TGID_X_EN(1)
@@ -406,8 +405,7 @@ void amdgpu_emit_dispatch_packets(GpuInfo &ginfo, Pm4Encoder &enc, Shader &shade
     auto predicating = false;
 
     // @todo: support
-    auto ordered = false;
-    if (ordered) {
+    if (shader.info.ordered) {
         dispatch_initiator &= ~S_00B800_ORDER_MODE(1);
     }
 

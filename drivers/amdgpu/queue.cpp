@@ -63,12 +63,13 @@ KesCommandList amdgpu_start_recording(KesQueue pq) {
 }
 
 // @todo: add support for semaphore or other synchronization.
-void amdgpu_submit(KesQueue pq, KesCommandList pcl) {
+void amdgpu_submit(KesQueue pq, KesCommandList pcl, KesSemaphore ps, uint64_t value) {
     auto *queue = reinterpret_cast<QueueImpl *>(pq);
     auto *cl = reinterpret_cast<CommandListImpl *>(pcl);
+    auto *sem = reinterpret_cast<SemaphoreImpl *>(ps);
     assert(cl->queue == queue, "submit: commandlist from foreign queue");
 
-    queue->cmd_ring->submit(cl->cs); //, semaphore, value);
+    queue->cmd_ring->submit(cl->cs, sem, value);
 
     // @todo: to free commandlist, we want to be sure that it is no longer mapped and stuff.
     // then, we can freely-free it. But i think this needs some deferred-cleanup, as

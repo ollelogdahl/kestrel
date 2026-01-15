@@ -31,6 +31,11 @@ typedef void *KesQueue;
 typedef void *KesCommandList;
 
 /**
+ * Opaque handle to a Semaphore.
+ */
+typedef void *KesSemaphore;
+
+/**
  * Structure describing a memory allocation.
  * @sa kes_malloc
  */
@@ -235,7 +240,7 @@ KesCommandList kes_start_recording(KesQueue queue);
  * @param queue The queue to submit the command list to. Must be the queue that the command list was created for.
  * @param command_list The command list to submit.
  */
-void kes_submit(KesQueue queue, KesCommandList command_list);
+void kes_submit(KesQueue queue, KesCommandList command_list, KesSemaphore semaphore, uint64_t value);
 
 /**
  * Record a memory set command in the command list.
@@ -312,6 +317,9 @@ void kes_cmd_dispatch(KesCommandList command_list, kes_gpuptr_t data, uint32_t x
  */
 void kes_cmd_dispatch_indirect(KesCommandList command_list, kes_gpuptr_t data, kes_gpuptr_t command_addr);
 
+KesSemaphore kes_create_semaphore(KesDevice device, uint64_t value);
+
+int kes_wait_semaphore(KesSemaphore semaphore, uint64_t value);
 
 #ifdef __cplusplus
 }

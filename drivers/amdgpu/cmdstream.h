@@ -7,6 +7,7 @@
 #include <amdgpu_drm.h>
 
 struct DeviceImpl;
+struct SemaphoreImpl;
 
 class CommandStream {
 public:
@@ -36,7 +37,7 @@ public:
     CommandRing(const CommandRing&) = delete;
 
     CommandStream begin_recording();
-    void submit(CommandStream& cs);
+    void submit(CommandStream& cs, SemaphoreImpl *, uint64_t);
 
 private:
     struct Submission {
@@ -56,6 +57,7 @@ private:
     uint64_t              m_gpu_va;
     uint32_t* m_cpu_map;
 
+    uint32_t m_queue_syncobj;
     uint64_t m_timeline_counter = 0;
 
     uint32_t              m_write_cursor_dw = 0;

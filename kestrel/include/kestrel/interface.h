@@ -23,7 +23,7 @@ struct KesDriverFuncs {
     KesQueue           (*fn_create_queue)(KesDevice, enum KesQueueType);
     void               (*fn_destroy_queue)(KesQueue);
     KesCommandList     (*fn_start_recording)(KesQueue);
-    void               (*fn_submit)(KesQueue, KesCommandList);
+    void               (*fn_submit)(KesQueue, KesCommandList, KesSemaphore, uint64_t);
     void               (*fn_cmd_memset)(KesCommandList, kes_gpuptr_t addr, size_t size, uint32_t value);
     void               (*fn_cmd_memcpy)(KesCommandList, kes_gpuptr_t dst, kes_gpuptr_t src, size_t size);
     void               (*fn_cmd_write_timestamp)(KesCommandList, kes_gpuptr_t addr);
@@ -31,6 +31,8 @@ struct KesDriverFuncs {
     void               (*fn_cmd_wait_before)(KesCommandList, enum KesStage after, kes_gpuptr_t addr, uint64_t value, enum KesOp, enum KesHazardFlags, uint64_t mask);
     void               (*fn_cmd_dispatch)(KesCommandList command_list, kes_gpuptr_t data, uint32_t x, uint32_t y, uint32_t z);
     void               (*fn_cmd_dispatch_indirect)(KesCommandList command_list, kes_gpuptr_t data, kes_gpuptr_t command_addr);
+    KesSemaphore       (*fn_create_semaphore)(KesDevice device, uint64_t value);
+    int               (*fn_wait_semaphore)(KesSemaphore semaphore, uint64_t value);
 };
 
 /**

@@ -11,6 +11,8 @@ int main(void) {
     auto x = kes_malloc(dev, size, 4, KesMemoryDefault);
     auto y = kes_malloc(dev, size, 4, KesMemoryDefault);
 
+    auto sem = kes_create_semaphore(dev, 0);
+
     printf("x: %p (%p) (%llu bytes)\n", x.cpu, x.gpu, x.size);
     printf("y: %p (%p) (%llu bytes)\n", y.cpu, y.gpu, y.size);
 
@@ -19,7 +21,8 @@ int main(void) {
     auto l1 = kes_start_recording(dma);
     kes_cmd_memset(l1, x.gpu, size, 2);
     kes_cmd_memcpy(l1, y.gpu, x.gpu, size);
-    kes_submit(dma, l1);
+
+    kes_submit(dma, l1, sem, 1);
 
     // @todo: hacky bussy-wait
     printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);

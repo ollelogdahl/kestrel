@@ -13,7 +13,7 @@ void i915_destroy_queue(KesQueue);
 
 KesCommandList i915_start_recording(KesQueue);
 
-void i915_submit(KesQueue, KesCommandList);
+void i915_submit(KesQueue, KesCommandList, KesSemaphore, uint64_t);
 
 void i915_cmd_memset(KesCommandList, kes_gpuptr_t addr, size_t size, uint32_t value);
 void i915_cmd_write_timestamp(KesCommandList, kes_gpuptr_t addr);

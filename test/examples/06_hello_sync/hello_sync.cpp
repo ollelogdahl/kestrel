@@ -12,6 +12,9 @@ int main(void) {
     auto y = kes_malloc(dev, 8, 4, KesMemoryDefault);
     auto ts = kes_malloc(dev, 8 * 4, 4, KesMemoryDefault);
 
+    auto sem1 = kes_create_semaphore(dev, 0);
+    auto sem2 = kes_create_semaphore(dev, 0);
+
     printf("x: %p (%p) (%llu bytes)\n", x.cpu, x.gpu, x.size);
     printf("y: %p (%p) (%llu bytes)\n", y.cpu, y.gpu, y.size);
 
@@ -33,10 +36,9 @@ int main(void) {
         kes_cmd_write_timestamp(l2, ts.gpu + 24);
     }
 
-    kes_submit(dma, l1);
-    kes_submit(compute, l2);
+    kes_submit(dma, l1, sem1, 1);
+    kes_submit(compute, l2, sem2, 1);
 
-    // @todo: how to wait on cpu for DMA transfer? TODO?
     printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
     sleep(1);
     printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);

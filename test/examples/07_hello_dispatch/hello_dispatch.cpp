@@ -13,6 +13,8 @@ int main(void) {
     auto x = kes_malloc(dev, 1024, 4, KesMemoryDefault);
     auto y = kes_malloc(dev, sizeof(DispatchArguments), 8, KesMemoryDefault);
 
+    auto sem = kes_create_semaphore(dev, 0);
+
     printf("x: %p %p\n", (void *)x.cpu, (void *)x.gpu);
     printf("y: %p %p\n", (void *)y.cpu, (void *)y.gpu);
 
@@ -26,17 +28,16 @@ int main(void) {
         kes_cmd_dispatch(cl, y.gpu, 32, 1, 1);
     }
 
-    kes_submit(compute, cl);
+    kes_submit(compute, cl, sem, 1);
 
-    sleep(1);
-
+    auto r = kes_wait_semaphore(sem, 1);
+    if (r < 0) {
+        printf("wait for semaphore failed: %d\n", r);
+    }
     printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
     printf("x[1]: %u\n", ((uint32_t *)x.cpu)[1]);
     printf("x[2]: %u\n", ((uint32_t *)x.cpu)[2]);
     printf("x[3]: %u\n", ((uint32_t *)x.cpu)[3]);
-
-    kes_free(dev, &x);
-    kes_destroy(dev);
 
     return 0;
 }

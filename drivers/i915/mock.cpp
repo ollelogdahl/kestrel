@@ -27,7 +27,7 @@ API_EXPORT KesCommandList i915_start_recording(KesQueue) {
     return nullptr;
 }
 
-API_EXPORT void i915_submit(KesQueue, KesCommandList) {
+API_EXPORT void i915_submit(KesQueue, KesCommandList, KesSemaphore, uint64_t) {
 
 }
 

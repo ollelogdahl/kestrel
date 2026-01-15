@@ -39,6 +39,11 @@ struct CommandListImpl {
     CommandStream cs;
 };
 
+struct SemaphoreImpl {
+    amdgpu_device_handle dev_handle;
+    uint32_t syncobj_handle;
+};
+
 extern "C" {
 KesDevice amdgpu_create(int drm_fd);
 void amdgpu_destroy(KesDevice);
@@ -50,7 +55,7 @@ void amdgpu_destroy_queue(KesQueue);
 
 KesCommandList amdgpu_start_recording(KesQueue);
 
-void amdgpu_submit(KesQueue, KesCommandList);
+void amdgpu_submit(KesQueue, KesCommandList, KesSemaphore, uint64_t);
 
 void amdgpu_cmd_memset(KesCommandList, kes_gpuptr_t addr, size_t size, uint32_t value);
 void amdgpu_cmd_memcpy(KesCommandList, kes_gpuptr_t dst, kes_gpuptr_t src, size_t size);
@@ -60,6 +65,9 @@ void amdgpu_cmd_signal_after(KesCommandList, KesStage before, kes_gpuptr_t addr,
 void amdgpu_cmd_wait_before(KesCommandList, KesStage after, kes_gpuptr_t addr, uint64_t value, KesOp, KesHazardFlags, uint64_t mask);
 void amdgpu_cmd_dispatch(KesCommandList pcl, kes_gpuptr_t data_ptr, uint32_t x, uint32_t y, uint32_t z);
 void amdgpu_cmd_dispatch_indirect(KesCommandList pcl, kes_gpuptr_t data_ptr, kes_gpuptr_t indirect_addr);
+
+KesSemaphore amdgpu_create_semaphore(KesDevice, uint64_t);
+int amdgpu_wait_semaphore(KesSemaphore, uint64_t);
 }
 
 void device_register_allocation(DeviceImpl *impl, amdgpu_bo_handle bo);
