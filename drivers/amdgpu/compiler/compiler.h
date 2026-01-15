@@ -1,8 +1,5 @@
 #pragma once
 
-#include "gir.h"
-namespace gir {
+#include "gir/gir.h"
 
-void rdna2_compile(IRModule &mod, void *write_ptr, uint64_t base_addr);
-
-}
+void rdna2_compile(gir::Module &mod, void *write_ptr, uint64_t base_addr);

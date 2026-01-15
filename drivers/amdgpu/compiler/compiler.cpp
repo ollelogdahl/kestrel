@@ -1,13 +1,13 @@
 #include "compiler.h"
 #include "rdna2_asm.h"
-#include "gir.h"
+#include "gir/gir.h"
 
 #include <sstream>
 #include <iomanip>
 #include <string>
 #include <fstream>
 
-namespace gir {
+using namespace gir;
 
 /*
 *
@@ -24,7 +24,7 @@ namespace gir {
 // @todo: this is obviously very early stage wip...
 
 struct Compiler {
-    IRModule& mod;
+    gir::Module& mod;
     RDNA2Assembler as;
 };
 
@@ -33,7 +33,7 @@ void analyze_liveness(Compiler &);
 void allocate_registers(Compiler &);
 void codegen(Compiler &);
 
-void rdna2_compile(IRModule &mod, void *write_ptr, uint64_t base_addr) {
+void rdna2_compile(gir::Module &mod, void *write_ptr, uint64_t base_addr) {
     Compiler compiler(mod);
 
     analyze_liveness(compiler);
@@ -62,16 +62,18 @@ void rdna2_compile(IRModule &mod, void *write_ptr, uint64_t base_addr) {
     }
 }
 
+// @todo: stuff like this is pretty general.
 void analyze_liveness(Compiler &cc) {
     for (uint32_t i = 0; i < cc.mod.insts.size(); ++i) {
-        for (auto arg : cc.mod.insts[i].args) {
-            if (arg.id != 0xFFFFFFFF) cc.mod.values[arg.id].last_use = i;
+        for (auto arg : cc.mod.insts[i].operands) {
+            if (arg.id != 0xFFFFFFFF) cc.mod.insts[arg.id].meta.last_use = i;
         }
     }
 }
 
 void analyze_uniformity(Compiler &cc) {
     // Simple propagation: Root ptr is uniform.
+    /*
     for (auto& inst : cc.mod.insts) {
         bool divergent = false;
         for (auto arg : inst.args) {
@@ -80,6 +82,7 @@ void analyze_uniformity(Compiler &cc) {
         if (inst.op == LOAD_GLOBAL) divergent = true; // Memory reads are divergent
         if (inst.dest.id != 0xFFFFFFFF) cc.mod.values[inst.dest.id].is_uniform = !divergent;
     }
+    */
 }
 
 void allocate_registers(Compiler &cc) {
@@ -123,6 +126,4 @@ void codegen(Compiler &cc) {
     for (auto i = 0; i < 64; ++i) {
         cc.as.sopp(RDNA2Assembler::sopp_opcode::s_code_end, 0);
     }
-}
-
 }

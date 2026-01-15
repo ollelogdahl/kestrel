@@ -1,3 +1,11 @@
+file(GLOB_RECURSE COMMON_DRIVER_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/common/*.cpp"
+)
+add_library(kes_driver_common STATIC ${COMMON_DRIVER_SOURCES})
+target_include_directories(kes_driver_common PUBLIC
+    common
+)
+
 function(add_kestrel_driver DRIVER_NAME)
     set(TARGET_NAME "kes_${DRIVER_NAME}")
 
@@ -17,7 +25,6 @@ function(add_kestrel_driver DRIVER_NAME)
     target_include_directories(${TARGET_NAME} PRIVATE
         ${PROJECT_SOURCE_DIR}/kestrel/include
         ${DRIVER_NAME}
-        common
     )
 
     target_compile_options(${TARGET_NAME} PRIVATE
@@ -40,6 +47,7 @@ function(add_kestrel_driver DRIVER_NAME)
     )
 
     target_link_libraries(${TARGET_NAME} PRIVATE
+        kes_driver_common
         fmt::fmt
         libdrm::libdrm
         ${ARGN}

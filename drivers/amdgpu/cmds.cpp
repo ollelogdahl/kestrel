@@ -1,5 +1,5 @@
+#include "gir/gir.h"
 #include "compiler/compiler.h"
-#include "compiler/gir.h"
 #include "cp_encoder.h"
 #include "gpuinfo.h"
 #include "kestrel/kestrel.h"
@@ -299,16 +299,20 @@ struct Shader {
 void init_compute_shader_config(DeviceImpl *dev, Shader &shader) {
 
     // @todo: ultra temporary.
-    auto x = amdgpu_malloc(dev, 1024, 256, KesMemoryDefault);
+    auto alloc = amdgpu_malloc(dev, 1024, 256, KesMemoryDefault);
 
     {
-        gir::IRModule mod;
+        gir::Module mod;
         gir::Builder gb(mod);
+        auto rp = gb.get_root_ptr();
+        auto x = gb.load(rp, gb.mul(gb.i32(4), gb.get_thread_id_x()));
+        auto sum = gb.add(x, gb.i32(15));
+        gb.store(rp, sum, x);
 
-        gir::rdna2_compile(mod, x.cpu, x.gpu);
+        rdna2_compile(mod, alloc.cpu, alloc.gpu);
     }
 
-    log("shader code: {} {}", (void *)x.cpu, (void *)x.gpu);
+    log("shader code: {} {}", (void *)alloc.cpu, (void *)alloc.gpu);
 
     // @todo: temporary
     auto ordered = false;
@@ -336,7 +340,7 @@ void init_compute_shader_config(DeviceImpl *dev, Shader &shader) {
     shader.info.block_size[0] = 32;
     shader.info.block_size[1] = 1;
     shader.info.block_size[2] = 1;
-    shader.va = x.gpu;
+    shader.va = alloc.gpu;
     shader.info.hw_stage = HwStage::Compute;
 
     // use large limits.
