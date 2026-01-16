@@ -50,6 +50,7 @@ enum class Op {
 
     GetRootPtr,
 
+    GetLocalInvocationId,
     GetThreadIdX,
     GetThreadIdY,
     GetThreadIdZ,
@@ -60,15 +61,13 @@ enum class Op {
     BackendIntrinsic,
 };
 
-using BackendIntrinsicId = uint32_t;
-
 struct Inst {
     Op op;
     Type type;
     std::vector<Value> operands;
 
     // only for BackendIntrinsic
-    BackendIntrinsicId intrinsic_id;
+    uint32_t intrinsic_id;
 
     union {
         int64_t imm_i64;
@@ -90,6 +89,10 @@ public:
         insts.push_back(inst);
         return Value{id};
     }
+
+    Inst &deref(Value v) {
+        return insts[v.id];
+    }
 };
 
 class Builder {
@@ -109,13 +112,15 @@ public:
     Value eq(Value a, Value b);
     Value lt(Value a, Value b);
 
-    Value load(Value addr, Value offset);
-    void store(Value addr, Value data, Value offset);
+    Value load(Value addr);
+    void store(Value addr, Value data);
 
     Value get_root_ptr();
 
+    Value get_local_invocation_id();
     Value get_thread_id_x();
     Value get_thread_id_y();
+    Value get_thread_id_z();
 
     Value get_workgroup_id_x();
     Value get_workgroup_id_y();

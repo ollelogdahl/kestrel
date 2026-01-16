@@ -80,19 +80,19 @@ Value Builder::lt(Value a, Value b) {
     });
 }
 
-Value Builder::load(Value addr, Value offset) {
+Value Builder::load(Value addr) {
     return mod.emit(Inst{
         .op = Op::Load,
         .type = Type::I32,
-        .operands = {addr, offset},
+        .operands = {addr},
     });
 }
 
-void Builder::store(Value addr, Value data, Value offset) {
+void Builder::store(Value addr, Value data) {
     mod.emit(Inst{
         .op = Op::Store,
         .type = Type::Void,
-        .operands = {addr, data, offset},
+        .operands = {addr, data},
     });
 }
 
@@ -100,6 +100,14 @@ Value Builder::get_root_ptr() {
     return mod.emit(Inst{
         .op = Op::GetRootPtr,
         .type = Type::Ptr,
+        .operands = {}
+    });
+}
+
+Value Builder::get_local_invocation_id() {
+    return mod.emit(Inst{
+        .op = Op::GetLocalInvocationId,
+        .type = Type::I32,
         .operands = {}
     });
 }
@@ -119,6 +127,15 @@ Value Builder::get_thread_id_y() {
         .operands = {}
     });
 }
+
+Value Builder::get_thread_id_z() {
+    return mod.emit(Inst{
+        .op = Op::GetThreadIdZ,
+        .type = Type::I32,
+        .operands = {}
+    });
+}
+
 
 Value Builder::get_workgroup_id_x() {
     return mod.emit(Inst{

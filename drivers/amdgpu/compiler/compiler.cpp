@@ -28,17 +28,22 @@ struct Compiler {
     RDNA2Assembler as;
 };
 
+void lower_simple(Compiler &);
 void analyze_uniformity(Compiler &);
-void analyze_liveness(Compiler &);
 void allocate_registers(Compiler &);
 void codegen(Compiler &);
+
+enum class AmdIntrinsics : uint32_t {
+    GlobalLoadDword,
+    GlobalLoadDwordAddTI, // 12-bit imm offset, saddr, addr
+};
 
 void rdna2_compile(gir::Module &mod, void *write_ptr, uint64_t base_addr) {
     Compiler compiler(mod);
 
-    analyze_liveness(compiler);
-    allocate_registers(compiler);
+    lower_simple(compiler);
     analyze_uniformity(compiler);
+    allocate_registers(compiler);
     codegen(compiler);
 
     auto code = compiler.as.values();
@@ -49,7 +54,7 @@ void rdna2_compile(gir::Module &mod, void *write_ptr, uint64_t base_addr) {
     // @todo: wip
     {
         std::stringstream ss;
-        ss << "shader_" << std::hex << reinterpret_cast<uintptr_t>(write_ptr) << ".bin";
+        ss << "shader_tmp.bin";
         std::string filename = ss.str();
 
         std::ofstream outfile(filename, std::ios::out | std::ios::binary);
@@ -62,35 +67,168 @@ void rdna2_compile(gir::Module &mod, void *write_ptr, uint64_t base_addr) {
     }
 }
 
-// @todo: stuff like this is pretty general.
-void analyze_liveness(Compiler &cc) {
+void lower_simple(Compiler &cc) {
     for (uint32_t i = 0; i < cc.mod.insts.size(); ++i) {
-        for (auto arg : cc.mod.insts[i].operands) {
-            if (arg.id != 0xFFFFFFFF) cc.mod.insts[arg.id].meta.last_use = i;
+        auto &inst = cc.mod.insts[i];
+        if (inst.op == gir::Op::GetRootPtr) {
+            // root pointer is passed as the user sgprs.
+            // we don't actually have to do anything.
+            inst.meta.phys_reg = 0;
+            inst.meta.is_uniform = true;
+        }
+
+        // @todo: handle local_invocation_id.
+        // There are many ways to do this, but I believe we need to lower it
+        // into a pack operation of vgpr0,1,2. But I'm not entirely sure.
+    }
+}
+
+void lower_memory_loads(Compiler &cc) {
+    // device memory loads should become global_load_dword or similar.
+    // these kinds of instructions support a base ptr + imm offset or
+    // base sgpr ptr + vgpr offset.
+
+    // if we detect such a pattern we can replace with these opcodes.
+    for (uint32_t i = 0; i < cc.mod.insts.size(); ++i) {
+        auto &inst = cc.mod.insts[i];
+        if (inst.op == gir::Op::Load) {
+            auto addr = cc.mod.deref(inst.operands[0]);
+
+            if (addr.meta.is_uniform) {
+                not_implemented("lower_memory_loads: cannot handle Op::Load with uniform address");
+            }
+
+            if (addr.op == gir::Op::Add) {
+                // we have detected an offset!
+                // @todo: I think we need some form of canonicalization
+                // here so the check can be more trivial.
+
+                auto lhs = cc.mod.deref(addr.operands[0]);
+                auto rhs = cc.mod.deref(addr.operands[1]);
+
+                assert(lhs.type == gir::Type::Ptr, "lower_memory_loads: invalid operand in load(x + y)");
+
+                if (rhs.op == gir::Op::Mul) {
+                    auto lhs2 = cc.mod.deref(rhs.operands[0]);
+                    auto rhs2 = cc.mod.deref(rhs.operands[1]);
+
+                    if (lhs2.op == gir::Op::GetLocalInvocationId && rhs2.op == gir::Op::Const && rhs2.data.imm_i64 == 4) {
+                        // replace instruction
+                        auto args = std::vector<Value>{lhs, rhs2};
+                        inst = gir::Inst{
+                            .op = gir::Op::BackendIntrinsic,
+                            .type = gir::Type::I32,
+                            .operands = args,
+                            .intrinsic_id = AmdIntrinsics::GlobalLoadDwordAddTI
+                        }
+                    }
+                }
+
+            } else {
+
+            }
         }
     }
 }
 
 void analyze_uniformity(Compiler &cc) {
-    // Simple propagation: Root ptr is uniform.
-    /*
-    for (auto& inst : cc.mod.insts) {
-        bool divergent = false;
-        for (auto arg : inst.args) {
-            if (arg.id != 0xFFFFFFFF && !cc.mod.values[arg.id].is_uniform) divergent = true;
-        }
-        if (inst.op == LOAD_GLOBAL) divergent = true; // Memory reads are divergent
-        if (inst.dest.id != 0xFFFFFFFF) cc.mod.values[inst.dest.id].is_uniform = !divergent;
+
+}
+
+uint32_t required_regs_for_type(gir::Type t) {
+    switch(t) {
+    case gir::Type::I32:
+    case gir::Type::F32:
+        return 1;
+    case gir::Type::Ptr:
+        return 2;
     }
-    */
+
+    return 0;
 }
 
 void allocate_registers(Compiler &cc) {
-    // linear register allocation. We need to note the DS and determine how many
-    // contiguous sgpr/vgprs are needed for that.
+    uint32_t sgpr_start = 6;
+    uint32_t vgpr_start = 3;
+    // @todo: improve register allocation and also reuse non-live
+    // registers.
+    for (auto &inst : cc.mod.insts) {
+        if (inst.meta.phys_reg != ~0u) continue;
+
+        // @todo: additionally, some types require a kind of align/size difference
+        // (flat_load_dword16 needs 4 align, 16 size).
+        // find next one / seq of regs of this kind
+        auto count = required_regs_for_type(inst.type);
+
+        if (inst.meta.is_uniform) {
+            inst.meta.phys_reg = sgpr_start;
+            sgpr_start += count;
+        } else {
+            inst.meta.phys_reg = vgpr_start;
+            vgpr_start += count;
+        }
+    }
+}
+
+inline RDNA2Assembler::vsrc get_vsrc(Compiler& c, gir::Value v) {
+    auto& inst = c.mod.deref(v);
+
+    // Handle inline constants
+    if (inst.op == gir::Op::Const) {
+        int32_t imm = inst.data.imm_i64;
+        if (imm == 0) return RDNA2Assembler::vsrc::zero;
+        if (imm == -1) return RDNA2Assembler::vsrc::int_neg_1;
+        if (imm >= 1 && imm <= 64) return (RDNA2Assembler::vsrc)((uint)RDNA2Assembler::vsrc::int_pos_1 + imm - 1);
+        if (imm < 0 && imm >= -16) return (RDNA2Assembler::vsrc)((uint)RDNA2Assembler::vsrc::int_neg_1 - imm - 1);
+        return RDNA2Assembler::vsrc::literal_constant;
+    }
+
+    auto reg = inst.meta.phys_reg;
+    if (inst.meta.is_uniform) {
+        return (RDNA2Assembler::vsrc)((uint)RDNA2Assembler::vsrc::sgpr0 + reg);
+    } else {
+        return (RDNA2Assembler::vsrc)((uint)RDNA2Assembler::vsrc::vgpr0 + reg);
+    }
+}
+
+inline RDNA2Assembler::ssrc get_ssrc(Compiler& c, gir::Value v) {
+    auto& inst = c.mod.deref(v);
+
+    if (inst.op == gir::Op::Const) {
+        int32_t imm = inst.data.imm_i64;
+        if (imm == 0) return RDNA2Assembler::ssrc::src_zero;
+        if (imm == -1) return RDNA2Assembler::ssrc::int_neg_1;
+        if (imm >= 1 && imm <= 64) return (RDNA2Assembler::ssrc)((uint)RDNA2Assembler::ssrc::int_pos_1 + imm - 1);
+        if (imm < 0 && imm >= -16) return (RDNA2Assembler::ssrc)((uint)RDNA2Assembler::ssrc::int_neg_1 - imm - 1);
+        return RDNA2Assembler::ssrc::literal_constant;
+    }
+
+    assert(inst.meta.is_uniform, "Cannot use non-uniform value as ssrc");
+    return (RDNA2Assembler::ssrc)((uint)RDNA2Assembler::ssrc::sgpr0 + inst.meta.phys_reg);
 }
 
 void codegen(Compiler &cc) {
+
+    for (auto &inst : cc.mod.insts) {
+        switch (inst.op) {
+        case gir::Op::BackendIntrinsic: {
+            switch(inst.intrinsic_id) {
+            case (uint32_t)AmdIntrinsics::GlobalLoadDwordAddTI: {
+                // @todo: support offset constants
+                //assert(cc.mod.deref(inst.operands[0]).op == gir::Op::Const, "offset must be const");
+                //auto offset = mod.deref(inst.operands[0]).data.imm_i64;
+                auto offset = 0;
+
+                auto saddr = get_ssrc(cc, inst.operands[1]);
+                auto addr = get_vsrc(cc, inst.operands[2]);
+                cc.as.global(RDNA2Assembler::global_opcode::global_load_dword_addtid, false, false, false, false,
+                    offset, 0, (uint8_t)saddr, inst.meta.phys_reg, (uint8_t)addr
+                );
+            } break;
+            }
+        } break;
+        }
+    }
 
     /*
     for (auto& inst : mod.insts) {
