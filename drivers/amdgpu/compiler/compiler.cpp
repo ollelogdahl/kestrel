@@ -89,6 +89,9 @@ void lower_memory_loads(Compiler &cc) {
     // base sgpr ptr + vgpr offset.
 
     // if we detect such a pattern we can replace with these opcodes.
+    // global_load_dword: saddr + voff (+ imm offset)
+    // global_load_dword: vaddr (+ imm offset)
+    // global_load_dword_addtid: saddr (+ imm offset) + 4 * local_invocation_id
     for (uint32_t i = 0; i < cc.mod.insts.size(); ++i) {
         auto &inst = cc.mod.insts[i];
         if (inst.op == gir::Op::Load) {
