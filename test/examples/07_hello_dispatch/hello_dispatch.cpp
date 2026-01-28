@@ -10,6 +10,9 @@ int main(void) {
 
     auto sem = kes_create_semaphore(dev, 0);
 
+    ((uint32_t *)x.cpu)[0] = 1;
+    ((uint32_t *)x.cpu)[2] = 4;
+    ((uint32_t *)x.cpu)[3] = 10;
     printf("x: %p %p\n", (void *)x.cpu, (void *)x.gpu);
 
     auto compute = kes_create_queue(dev, KesQueueTypeCompute);
