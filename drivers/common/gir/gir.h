@@ -2,6 +2,10 @@
 
 #include <cstdint>
 #include <vector>
+#include <functional>
+#include <string_view>
+
+#define GIR_VERSION "v1"
 
 namespace gir {
 
@@ -121,6 +125,8 @@ public:
 protected:
     Module& mod;
 };
+
+std::string dump_module(Module &mod, std::function<std::string_view(uint32_t)> backend_intrinsic_to_string);
 
 void pass_normalize(Module& mod);
 void pass_eliminate_dead_code(Module &mod);
