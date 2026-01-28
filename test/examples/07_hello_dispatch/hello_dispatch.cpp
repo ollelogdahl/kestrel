@@ -30,5 +30,12 @@ int main(void) {
     printf("x[2]: %u\n", ((uint32_t *)x.cpu)[2]);
     printf("x[3]: %u\n", ((uint32_t *)x.cpu)[3]);
 
+    sleep(1);
+
+    printf("x[0]: %u\n", ((uint32_t *)x.cpu)[0]);
+    printf("x[1]: %u\n", ((uint32_t *)x.cpu)[1]);
+    printf("x[2]: %u\n", ((uint32_t *)x.cpu)[2]);
+    printf("x[3]: %u\n", ((uint32_t *)x.cpu)[3]);
+
     return 0;
 }

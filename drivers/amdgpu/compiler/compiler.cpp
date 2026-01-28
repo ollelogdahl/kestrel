@@ -27,6 +27,9 @@ using namespace gir;
 struct Compiler {
     gir::Module& mod;
     RDNA2Assembler as;
+
+    uint32_t sgpr_allocator = 6;
+    uint32_t vgpr_allocator = 3;
 };
 
 void lower_simple(Compiler &);
@@ -53,18 +56,25 @@ void tmp_dump_shader(uint32_t *data, size_t code_size_bytes) {
     log("shader written to {}", filename);
 }
 
+std::string_view rdna2_backend_intrinsic_to_string(uint32_t intrinsic_id) {
+    switch(intrinsic_id) {
+        case (uint32_t)AmdIntrinsics::GlobalLoadDwordAddTID_Scale4: return "GlobalLoadDwordAddTID_Scale4";
+        case (uint32_t)AmdIntrinsics::GlobalStoreDwordAddTID_Scale4: return "GlobalStoreDwordAddTID_Scale4";
+        default: return "?";
+    }
+}
+
 void rdna2_compile(gir::Module &mod, void *write_ptr, uint64_t base_addr) {
     Compiler compiler(mod);
 
     gir::pass_normalize(mod);
-
     lower_simple(compiler);
     lower_memory_loads(compiler);
+    gir::pass_eliminate_dead_code(mod);
     analyze_uniformity(compiler);
 
-    gir::pass_eliminate_dead_code(mod);
-
-    allocate_registers(compiler);
+    auto txt = gir::dump_module(mod, rdna2_backend_intrinsic_to_string);
+    log("\nIntermediate Representation:\n{}", txt);
 
     codegen(compiler);
 
@@ -215,26 +225,15 @@ uint32_t required_regs_for_type(gir::Type t) {
     return 0;
 }
 
-void allocate_registers(Compiler &cc) {
-    uint32_t sgpr_start = 6;
-    uint32_t vgpr_start = 3;
-    // @todo: improve register allocation and also reuse non-live
-    // registers.
-    for (auto &inst : cc.mod.insts) {
-        if (inst.meta.phys_reg != ~0u) continue;
+void allocate_sgpr(Compiler &c, gir::Inst &inst) {
+    if (inst.meta.phys_reg == ~0u) {
+        inst.meta.phys_reg = c.sgpr_allocator++;
+    }
+}
 
-        // @todo: additionally, some types require a kind of align/size difference
-        // (flat_load_dword16 needs 4 align, 16 size).
-        // find next one / seq of regs of this kind
-        auto count = required_regs_for_type(inst.type);
-
-        if (inst.meta.is_uniform) {
-            inst.meta.phys_reg = sgpr_start;
-            sgpr_start += count;
-        } else {
-            inst.meta.phys_reg = vgpr_start;
-            vgpr_start += count;
-        }
+void allocate_vgpr(Compiler &c, gir::Inst &inst) {
+    if (inst.meta.phys_reg == ~0u) {
+        inst.meta.phys_reg = c.sgpr_allocator++;
     }
 }
 
@@ -248,14 +247,16 @@ inline RDNA2Assembler::vsrc get_vsrc(Compiler& c, gir::Value v) {
         if (imm == -1) return RDNA2Assembler::vsrc::int_neg_1;
         if (imm >= 1 && imm <= 64) return (RDNA2Assembler::vsrc)((uint)RDNA2Assembler::vsrc::int_pos_1 + imm - 1);
         if (imm < 0 && imm >= -16) return (RDNA2Assembler::vsrc)((uint)RDNA2Assembler::vsrc::int_neg_1 - imm - 1);
+        // @todo: this needs to be additionally added after the
         return RDNA2Assembler::vsrc::literal_constant;
     }
 
-    auto reg = inst.meta.phys_reg;
     if (inst.meta.is_uniform) {
-        return (RDNA2Assembler::vsrc)((uint)RDNA2Assembler::vsrc::sgpr0 + reg);
+        allocate_sgpr(c, inst);
+        return (RDNA2Assembler::vsrc)((uint)RDNA2Assembler::vsrc::sgpr0 + inst.meta.phys_reg);
     } else {
-        return (RDNA2Assembler::vsrc)((uint)RDNA2Assembler::vsrc::vgpr0 + reg);
+        allocate_vgpr(c, inst);
+        return (RDNA2Assembler::vsrc)((uint)RDNA2Assembler::vsrc::vgpr0 + inst.meta.phys_reg);
     }
 }
 
@@ -272,6 +273,8 @@ inline RDNA2Assembler::ssrc get_ssrc(Compiler& c, gir::Value v) {
     }
 
     assert(inst.meta.is_uniform, "Cannot use non-uniform value as ssrc");
+
+    allocate_sgpr(c, inst);
     return (RDNA2Assembler::ssrc)((uint)RDNA2Assembler::ssrc::sgpr0 + inst.meta.phys_reg);
 }
 
@@ -283,15 +286,17 @@ void codegen(Compiler &cc) {
             case (uint32_t)AmdIntrinsics::GlobalLoadDwordAddTID_Scale4: {
                 auto saddr = get_ssrc(cc, inst.operands[0]);
 
+                allocate_vgpr(cc, inst);
+
                 // @todo: how do we know what to do about the cache flags?
                 cc.as.global(
                     RDNA2Assembler::global_opcode::global_load_dword_addtid,
                     false, false, false, false,
-                    0,                      // 12-bit immediate offset (0 for now)
-                    0,                      // vaddr (0 = use addtid mode)
-                    (uint8_t)saddr,         // saddr base pointer
-                    inst.meta.phys_reg,     // vdst destination register
-                    0                       // unused in addtid mode
+                    0,
+                    inst.meta.phys_reg,
+                    (uint8_t)saddr,
+                    0,
+                    0
                 );
 
                 // @todo: wait for load to complete. this is very conservative
@@ -351,7 +356,7 @@ void codegen(Compiler &cc) {
         case gir::Op::Add: {
             if (inst.type == gir::Type::I32) {
                 if (inst.meta.is_uniform) {
-                    // Scalar add: s_add_u32
+                    allocate_sgpr(cc, inst);
                     auto src0 = get_ssrc(cc, inst.operands[0]);
                     auto src1 = get_ssrc(cc, inst.operands[1]);
                     cc.as.sop2(
@@ -361,7 +366,7 @@ void codegen(Compiler &cc) {
                         src1
                     );
                 } else {
-                    // Vector add: v_add_nc_u32 (non-carry version)
+                    allocate_vgpr(cc, inst);
                     // vsrc1 MUST be a VGPR, src0 can be anything (SGPR, VGPR, const)
                     auto& op0 = cc.mod.deref(inst.operands[0]);
                     auto& op1 = cc.mod.deref(inst.operands[1]);
