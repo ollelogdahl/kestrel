@@ -88,9 +88,25 @@ Value Builder::load(Value addr) {
     });
 }
 
+Value Builder::load_shared(Value addr) {
+    return mod.emit(Inst{
+        .op = Op::LoadShared,
+        .type = Type::I32,
+        .operands = {addr},
+    });
+}
+
 void Builder::store(Value addr, Value data) {
     mod.emit(Inst{
         .op = Op::Store,
+        .type = Type::Void,
+        .operands = {addr, data},
+    });
+}
+
+void Builder::store_shared(Value addr, Value data) {
+    mod.emit(Inst{
+        .op = Op::StoreShared,
         .type = Type::Void,
         .operands = {addr, data},
     });

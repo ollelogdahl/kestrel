@@ -5,7 +5,7 @@
 #include <functional>
 #include <string_view>
 
-#define GIR_VERSION "v1"
+#define GIR_VERSION "v1.1"
 
 namespace gir {
 
@@ -44,7 +44,9 @@ enum class Op {
     Gt,
     Ge,
     Load,
+    LoadShared,
     Store,
+    StoreShared,
     Const,
     GetRootPtr,
     GetLocalInvocationId,
@@ -109,7 +111,9 @@ public:
     Value lt(Value a, Value b);
 
     Value load(Value addr);
+    Value load_shared(Value addr);
     void store(Value addr, Value data);
+    void store_shared(Value addr, Value data);
 
     Value get_root_ptr();
 
