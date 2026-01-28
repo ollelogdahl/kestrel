@@ -277,6 +277,30 @@ inline RDNA2Assembler::ssrc get_ssrc(Compiler& c, gir::Value v) {
     return (RDNA2Assembler::ssrc)((uint)RDNA2Assembler::ssrc::sgpr0 + inst.meta.phys_reg);
 }
 
+// some operators are commutative but don't allow certain values in a given place.
+// Specifically, vsrc1 MUST be a VGPR, src0 can be anything (SGPR, VGPR, const).
+struct VOP2Operands {
+    RDNA2Assembler::vsrc src0;
+    uint8_t src1;
+};
+VOP2Operands vop2_order(Compiler &cc, const Value &a, const Value &b) {
+    auto& op0 = cc.mod.deref(a);
+    auto& op1 = cc.mod.deref(b);
+
+    bool op0_is_vgpr = !op0.meta.is_uniform && op0.op != gir::Op::Const;
+    bool op1_is_vgpr = !op1.meta.is_uniform && op1.op != gir::Op::Const;
+
+    if (!op0_is_vgpr && !op1_is_vgpr) {
+        not_implemented("codegen: vop2_order requires at least one VGPR operand");
+    }
+
+    if (op0_is_vgpr) {
+        return VOP2Operands{get_vsrc(cc, b), (uint8_t)op0.meta.phys_reg};
+    } else {
+        return VOP2Operands{get_vsrc(cc, a), (uint8_t)op1.meta.phys_reg};
+    }
+}
+
 void codegen(Compiler &cc) {
     for (auto &inst : cc.mod.insts) {
         switch (inst.op) {
@@ -366,34 +390,14 @@ void codegen(Compiler &cc) {
                     );
                 } else {
                     allocate_vgpr(cc, inst);
-                    // vsrc1 MUST be a VGPR, src0 can be anything (SGPR, VGPR, const)
-                    auto& op0 = cc.mod.deref(inst.operands[0]);
-                    auto& op1 = cc.mod.deref(inst.operands[1]);
+                    auto ops = vop2_order(cc, inst.operands[0], inst.operands[1]);
 
-                    // Ensure VGPR is in vsrc1 position by swapping if needed
-                    bool op0_is_vgpr = !op0.meta.is_uniform && op0.op != gir::Op::Const;
-                    bool op1_is_vgpr = !op1.meta.is_uniform && op1.op != gir::Op::Const;
-
-                    if (!op0_is_vgpr && !op1_is_vgpr) {
-                        not_implemented("codegen: v_add_nc_u32 requires at least one VGPR operand");
-                    }
-
-                    // Swap so VGPR is always in vsrc1 position
-                    if (op0_is_vgpr && !op1_is_vgpr) {
-                        cc.as.vop2(
-                            RDNA2Assembler::vop2_opcode::v_add_nc_u32,
-                            inst.meta.phys_reg,
-                            get_vsrc(cc, inst.operands[1]),  // src0: can be const/sgpr
-                            op0.meta.phys_reg                // vsrc1: VGPR
-                        );
-                    } else {
-                        cc.as.vop2(
-                            RDNA2Assembler::vop2_opcode::v_add_nc_u32,
-                            inst.meta.phys_reg,
-                            get_vsrc(cc, inst.operands[0]),  // src0: can be const/sgpr/vgpr
-                            op1.meta.phys_reg                // vsrc1: VGPR
-                        );
-                    }
+                    cc.as.vop2(
+                        RDNA2Assembler::vop2_opcode::v_add_nc_u32,
+                        inst.meta.phys_reg,
+                        ops.src0,
+                        ops.src1
+                    );
                 }
             } else if (inst.type == gir::Type::Ptr) {
                 not_implemented("codegen: pointer addition (64-bit) not yet implemented");
