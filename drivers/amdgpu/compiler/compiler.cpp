@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <string>
 #include <fstream>
+#include <optional>
 
 using namespace gir;
 
@@ -29,42 +30,49 @@ struct Compiler {
 };
 
 void lower_simple(Compiler &);
+void lower_memory_loads(Compiler &);
 void analyze_uniformity(Compiler &);
 void allocate_registers(Compiler &);
 void codegen(Compiler &);
 
 enum class AmdIntrinsics : uint32_t {
-    GlobalLoadDword,
-    GlobalLoadDwordAddTI, // 12-bit imm offset, saddr, addr
+    GlobalLoadDwordAddTID_Scale4,
+    GlobalStoreDwordAddTID_Scale4,
 };
+
+void tmp_dump_shader(uint32_t *data, size_t code_size_bytes) {
+    std::stringstream ss;
+    ss << "shader_tmp.bin";
+    std::string filename = ss.str();
+
+    std::ofstream outfile(filename, std::ios::out | std::ios::binary);
+    if (outfile.is_open()) {
+        outfile.write(reinterpret_cast<const char*>(data), code_size_bytes);
+        outfile.close();
+    }
+    log("shader written to {}", filename);
+}
 
 void rdna2_compile(gir::Module &mod, void *write_ptr, uint64_t base_addr) {
     Compiler compiler(mod);
 
+    gir::pass_normalize(mod);
+
     lower_simple(compiler);
+    lower_memory_loads(compiler);
     analyze_uniformity(compiler);
+
+    gir::pass_eliminate_dead_code(mod);
+
     allocate_registers(compiler);
+
     codegen(compiler);
 
     auto code = compiler.as.values();
     auto code_size_bytes = code.size() * sizeof(uint32_t);
     memcpy(write_ptr, code.data(), code_size_bytes);
 
-    // dump the shader code to a file.
-    // @todo: wip
-    {
-        std::stringstream ss;
-        ss << "shader_tmp.bin";
-        std::string filename = ss.str();
-
-        std::ofstream outfile(filename, std::ios::out | std::ios::binary);
-        if (outfile.is_open()) {
-            outfile.write(reinterpret_cast<const char*>(code.data()), code_size_bytes);
-            outfile.close();
-        }
-        log("shader written to {}", filename);
-        exit(0);
-    }
+    tmp_dump_shader(code.data(), code_size_bytes);
 }
 
 void lower_simple(Compiler &cc) {
@@ -80,7 +88,61 @@ void lower_simple(Compiler &cc) {
         // @todo: handle local_invocation_id.
         // There are many ways to do this, but I believe we need to lower it
         // into a pack operation of vgpr0,1,2. But I'm not entirely sure.
+        if (inst.op == gir::Op::GetLocalInvocationId) {
+            // @todo: stop assuming 1d dispatch.
+            inst.meta.phys_reg = 0; // vgpr0
+            inst.meta.is_uniform = false;
+        }
     }
+}
+
+struct AddressPattern {
+    Value base_ptr;
+    bool is_tid_scaled_by_4 = false;
+};
+
+std::optional<AddressPattern> match_address_pattern(Compiler& cc, const Inst& addr) {
+    AddressPattern pat;
+
+    // Match: ptr
+    if (addr.type == Type::Ptr && addr.op != Op::Add) {
+        pat.base_ptr = addr.operands[0];
+        return pat;
+    }
+
+    // Match: ptr + offset
+    if (addr.op == Op::Add) {
+        auto& lhs = cc.mod.deref(addr.operands[0]);
+        auto& rhs = cc.mod.deref(addr.operands[1]);
+
+        // After normalization, ptr should be on left
+        if (lhs.type != Type::Ptr) {
+            log("not normalized?");
+            return std::nullopt; // Shouldn't happen after normalization
+        }
+
+        pat.base_ptr = addr.operands[0];
+
+        // Check if offset is tid * 4
+        if (rhs.op == Op::Mul) {
+            auto& mul_lhs = cc.mod.deref(rhs.operands[0]);
+            auto& mul_rhs = cc.mod.deref(rhs.operands[1]);
+
+            if (mul_lhs.op == Op::GetLocalInvocationId &&
+                mul_rhs.op == Op::Const &&
+                mul_rhs.data.imm_i64 == 4) {
+                pat.is_tid_scaled_by_4 = true;
+                return pat;
+            }
+        }
+
+        // Other offset patterns not yet supported
+        log("other offset pattern?");
+        return std::nullopt;
+    }
+
+    log("what? op: {}", (int)addr.op);
+    return std::nullopt;
 }
 
 void lower_memory_loads(Compiler &cc) {
@@ -88,47 +150,50 @@ void lower_memory_loads(Compiler &cc) {
     // these kinds of instructions support a base ptr + imm offset or
     // base sgpr ptr + vgpr offset.
 
-    // if we detect such a pattern we can replace with these opcodes.
     // global_load_dword: saddr + voff (+ imm offset)
     // global_load_dword: vaddr (+ imm offset)
     // global_load_dword_addtid: saddr (+ imm offset) + 4 * local_invocation_id
     for (uint32_t i = 0; i < cc.mod.insts.size(); ++i) {
         auto &inst = cc.mod.insts[i];
-        if (inst.op == gir::Op::Load) {
-            auto addr = cc.mod.deref(inst.operands[0]);
-
-            if (addr.meta.is_uniform) {
-                not_implemented("lower_memory_loads: cannot handle Op::Load with uniform address");
+        if (inst.op == Op::Load) {
+            auto& addr = cc.mod.deref(inst.operands[0]);
+            auto pat = match_address_pattern(cc, addr);
+            if (!pat) {
+                not_implemented("lower_memory_loads: unsupported load address pattern");
             }
 
-            if (addr.op == gir::Op::Add) {
-                // we have detected an offset!
-                // @todo: I think we need some form of canonicalization
-                // here so the check can be more trivial.
+            auto& base = cc.mod.deref(pat->base_ptr);
 
-                auto lhs = cc.mod.deref(addr.operands[0]);
-                auto rhs = cc.mod.deref(addr.operands[1]);
+            if (!base.meta.is_uniform) {
+                not_implemented("lower_memory_loads: non-uniform base pointer in Load not yet supported");
+            }
 
-                assert(lhs.type == gir::Type::Ptr, "lower_memory_loads: invalid operand in load(x + y)");
-
-                if (rhs.op == gir::Op::Mul) {
-                    auto lhs2 = cc.mod.deref(rhs.operands[0]);
-                    auto rhs2 = cc.mod.deref(rhs.operands[1]);
-
-                    if (lhs2.op == gir::Op::GetLocalInvocationId && rhs2.op == gir::Op::Const && rhs2.data.imm_i64 == 4) {
-                        // replace instruction
-                        auto args = std::vector<Value>{lhs, rhs2};
-                        inst = gir::Inst{
-                            .op = gir::Op::BackendIntrinsic,
-                            .type = gir::Type::I32,
-                            .operands = args,
-                            .intrinsic_id = AmdIntrinsics::GlobalLoadDwordAddTI
-                        }
-                    }
-                }
-
+            if (pat->is_tid_scaled_by_4) {
+                inst.op = Op::BackendIntrinsic;
+                inst.intrinsic_id = (uint32_t)AmdIntrinsics::GlobalLoadDwordAddTID_Scale4;
+                inst.operands = {pat->base_ptr};
             } else {
+                not_implemented("lower_memory_loads: simple loads not yet implemented");
+            }
+        } else if (inst.op == Op::Store) {
+            auto& addr = cc.mod.deref(inst.operands[0]);
+            auto pat = match_address_pattern(cc, addr);
+            if (!pat) {
+                not_implemented("lower_memory_loads: unsupported Store address pattern");
+            }
 
+            auto& base = cc.mod.deref(pat->base_ptr);
+
+            if (!base.meta.is_uniform) {
+                not_implemented("lower_memory_loads: non-uniform base pointer in Store not yet supported");
+            }
+
+            if (pat->is_tid_scaled_by_4) {
+                inst.op = Op::BackendIntrinsic;
+                inst.intrinsic_id = (uint32_t)AmdIntrinsics::GlobalStoreDwordAddTID_Scale4;
+                inst.operands = {pat->base_ptr, inst.operands[1]};
+            } else {
+                not_implemented("lower_memory_loads: simple stores not yet implemented");
             }
         }
     }
@@ -211,55 +276,138 @@ inline RDNA2Assembler::ssrc get_ssrc(Compiler& c, gir::Value v) {
 }
 
 void codegen(Compiler &cc) {
-
     for (auto &inst : cc.mod.insts) {
         switch (inst.op) {
         case gir::Op::BackendIntrinsic: {
             switch(inst.intrinsic_id) {
-            case (uint32_t)AmdIntrinsics::GlobalLoadDwordAddTI: {
-                // @todo: support offset constants
-                //assert(cc.mod.deref(inst.operands[0]).op == gir::Op::Const, "offset must be const");
-                //auto offset = mod.deref(inst.operands[0]).data.imm_i64;
-                auto offset = 0;
+            case (uint32_t)AmdIntrinsics::GlobalLoadDwordAddTID_Scale4: {
+                auto saddr = get_ssrc(cc, inst.operands[0]);
 
-                auto saddr = get_ssrc(cc, inst.operands[1]);
-                auto addr = get_vsrc(cc, inst.operands[2]);
-                cc.as.global(RDNA2Assembler::global_opcode::global_load_dword_addtid, false, false, false, false,
-                    offset, 0, (uint8_t)saddr, inst.meta.phys_reg, (uint8_t)addr
+                // @todo: how do we know what to do about the cache flags?
+                cc.as.global(
+                    RDNA2Assembler::global_opcode::global_load_dword_addtid,
+                    false, false, false, false,
+                    0,                      // 12-bit immediate offset (0 for now)
+                    0,                      // vaddr (0 = use addtid mode)
+                    (uint8_t)saddr,         // saddr base pointer
+                    inst.meta.phys_reg,     // vdst destination register
+                    0                       // unused in addtid mode
+                );
+
+                // @todo: wait for load to complete. this is very conservative
+                cc.as.sopp(RDNA2Assembler::sopp_opcode::s_waitcnt, 0x3F70);
+            } break;
+            case (uint32_t)AmdIntrinsics::GlobalStoreDwordAddTID_Scale4: {
+                auto saddr = get_ssrc(cc, inst.operands[0]);
+                auto& data = cc.mod.deref(inst.operands[1]);
+
+                if (data.meta.is_uniform) {
+                    not_implemented("codegen: GlobalStoreDwordAddTI with uniform data (need v_mov)");
+                }
+
+                cc.as.global(
+                    RDNA2Assembler::global_opcode::global_store_dword_addtid,
+                    false, false, false, false,
+                    0, 0, (uint8_t)saddr, data.meta.phys_reg, 0
                 );
             } break;
+            default:
+                not_implemented("codegen: unknown backend intrinsic: {}", inst.intrinsic_id);
             }
         } break;
+
+        case gir::Op::Store: {
+            // @todo: we currently assume all stores are global, but this may not be the case.
+            // I am not sure how NIR handles this, nor how other backends have local caches (LDS & GDS).
+            auto& addr = cc.mod.deref(inst.operands[0]);
+            auto& data = cc.mod.deref(inst.operands[1]);
+
+            if (!addr.meta.is_uniform) {
+                not_implemented("codegen: Store with non-uniform address not yet supported");
+            }
+
+            if (data.meta.is_uniform) {
+                not_implemented("codegen: Store with uniform data not yet supported (need v_mov to copy sgpr to vgpr)");
+            }
+
+            if (data.type != gir::Type::I32 && data.type != gir::Type::F32) {
+                not_implemented("codegen: Store only supports I32/F32 for now");
+            }
+
+            // global_store_dword: saddr + vdata
+            auto saddr = get_ssrc(cc, inst.operands[0]);
+
+            cc.as.global(
+                RDNA2Assembler::global_opcode::global_store_dword,
+                true, true, false, true,
+                0,                      // 12-bit immediate offset
+                0,                      // vdst (unused for stores)
+                (uint8_t)saddr,         // saddr base pointer
+                data.meta.phys_reg,     // vdata - data to store
+                0                       // vaddr (0 = use saddr only)
+            );
+        } break;
+
+        case gir::Op::Add: {
+            if (inst.type == gir::Type::I32) {
+                if (inst.meta.is_uniform) {
+                    // Scalar add: s_add_u32
+                    auto src0 = get_ssrc(cc, inst.operands[0]);
+                    auto src1 = get_ssrc(cc, inst.operands[1]);
+                    cc.as.sop2(
+                        RDNA2Assembler::sop2_opcode::s_add_u32,
+                        (RDNA2Assembler::ssrc)inst.meta.phys_reg,
+                        src0,
+                        src1
+                    );
+                } else {
+                    // Vector add: v_add_nc_u32 (non-carry version)
+                    // vsrc1 MUST be a VGPR, src0 can be anything (SGPR, VGPR, const)
+                    auto& op0 = cc.mod.deref(inst.operands[0]);
+                    auto& op1 = cc.mod.deref(inst.operands[1]);
+
+                    // Ensure VGPR is in vsrc1 position by swapping if needed
+                    bool op0_is_vgpr = !op0.meta.is_uniform && op0.op != gir::Op::Const;
+                    bool op1_is_vgpr = !op1.meta.is_uniform && op1.op != gir::Op::Const;
+
+                    if (!op0_is_vgpr && !op1_is_vgpr) {
+                        not_implemented("codegen: v_add_nc_u32 requires at least one VGPR operand");
+                    }
+
+                    // Swap so VGPR is always in vsrc1 position
+                    if (op0_is_vgpr && !op1_is_vgpr) {
+                        cc.as.vop2(
+                            RDNA2Assembler::vop2_opcode::v_add_nc_u32,
+                            inst.meta.phys_reg,
+                            get_vsrc(cc, inst.operands[1]),  // src0: can be const/sgpr
+                            op0.meta.phys_reg                // vsrc1: VGPR
+                        );
+                    } else {
+                        cc.as.vop2(
+                            RDNA2Assembler::vop2_opcode::v_add_nc_u32,
+                            inst.meta.phys_reg,
+                            get_vsrc(cc, inst.operands[0]),  // src0: can be const/sgpr/vgpr
+                            op1.meta.phys_reg                // vsrc1: VGPR
+                        );
+                    }
+                }
+            } else if (inst.type == gir::Type::Ptr) {
+                not_implemented("codegen: pointer addition (64-bit) not yet implemented");
+            } else {
+                not_implemented("codegen: Add not implemented for type: {}", (int)inst.type);
+            }
+        } break;
+
+        case gir::Op::Const:
+        case gir::Op::GetRootPtr:
+        case gir::Op::GetLocalInvocationId:
+            // Skip metadata operations and constants
+            break;
+        default:
+            not_implemented("codegen: operation not yet implemented: {}", (int)inst.op);
+            break;
         }
     }
-
-    /*
-    for (auto& inst : mod.insts) {
-        switch (inst.op) {
-            case ADD:
-                if (mod.values[inst.dest.id].is_uniform)
-                    as.sop2(sop2_opcode::s_add_u32, mod.values[inst.dest.id].phys_reg,
-                            mod.values[inst.args[0].id].phys_reg, mod.values[inst.args[1].id].phys_reg);
-                else
-                    as.vop2(vop2_opcode::v_add_nc_u32, mod.values[inst.dest.id].phys_reg,
-                            mod.values[inst.args[0].id].phys_reg, mod.values[inst.args[1].id].phys_reg);
-                break;
-            case LOAD_GLOBAL:
-                as.global(global_opcode::global_load_dword, inst.imm,
-                            mod.values[inst.dest.id].phys_reg, mod.values[inst.args[0].id].phys_reg, 0);
-                break;
-            case STORE_GLOBAL:
-                as.global(global_opcode::global_store_dword, inst.imm,
-                            0, mod.values[inst.args[0].id].phys_reg, mod.values[inst.args[2].id].phys_reg);
-                break;
-            case V_MOV_S2V:
-                    as.vop2(vop2_opcode::v_mov_b32, mod.values[inst.dest.id].phys_reg,
-                            mod.values[inst.args[0].id].phys_reg, 0);
-                    break;
-        }
-    }
-     */
-
 
     cc.as.sopp(RDNA2Assembler::sopp_opcode::s_endpgm, 0);
 

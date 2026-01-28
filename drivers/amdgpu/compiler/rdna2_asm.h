@@ -548,6 +548,10 @@ public:
         flat_impl((uint8_t)op, slc, glc, 2, lds, dlc, offset, vdst, saddr, data, addr);
     }
 
+    inline void waitcnt(uint8_t vmcnt, uint8_t expcnt, uint8_t lgkmcnt) {
+        sopp(sopp_opcode::s_waitcnt, (vmcnt & 0x18) << 14 | (lgkmcnt & 0x1F) << 8 | (expcnt & 0x3) << 4 | (vmcnt & 0xF));
+    }
+
     std::vector<uint32_t> &values() {
         return m_values;
     }

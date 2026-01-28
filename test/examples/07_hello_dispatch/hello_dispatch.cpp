@@ -3,29 +3,20 @@
 
 #include <stdio.h>
 
-struct DispatchArguments {
-    uint64_t buffer;
-};
-
 int main(void) {
     auto dev = kes_create();
 
-    auto x = kes_malloc(dev, 1024, 4, KesMemoryDefault);
-    auto y = kes_malloc(dev, sizeof(DispatchArguments), 8, KesMemoryDefault);
+    auto x = kes_malloc(dev, sizeof(uint32_t) * 128, 8, KesMemoryReadback);
 
     auto sem = kes_create_semaphore(dev, 0);
 
     printf("x: %p %p\n", (void *)x.cpu, (void *)x.gpu);
-    printf("y: %p %p\n", (void *)y.cpu, (void *)y.gpu);
-
-    DispatchArguments *args = (DispatchArguments *)y.cpu;
-    args->buffer = x.gpu;
 
     auto compute = kes_create_queue(dev, KesQueueTypeCompute);
 
     auto cl = kes_start_recording(compute);
     {
-        kes_cmd_dispatch(cl, y.gpu, 32, 1, 1);
+        kes_cmd_dispatch(cl, x.gpu, 32, 1, 1);
     }
 
     kes_submit(compute, cl, sem, 1);

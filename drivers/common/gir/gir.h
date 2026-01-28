@@ -24,32 +24,25 @@ enum class Op {
     Mul,
     Div,
     Mod,
-
     FAdd,
     FSub,
     FMul,
     FDiv,
-
     And,
     Or,
     Xor,
     Shl,
     Shr,
-
     Eq,
     Ne,
     Lt,
     Le,
     Gt,
     Ge,
-
     Load,
     Store,
-
     Const,
-
     GetRootPtr,
-
     GetLocalInvocationId,
     GetThreadIdX,
     GetThreadIdY,
@@ -57,7 +50,6 @@ enum class Op {
     GetWorkgroupIdX,
     GetWorkgroupIdY,
     GetWorkgroupIdZ,
-
     BackendIntrinsic,
 };
 
@@ -129,5 +121,8 @@ public:
 protected:
     Module& mod;
 };
+
+void pass_normalize(Module& mod);
+void pass_eliminate_dead_code(Module &mod);
 
 };
