@@ -35,7 +35,6 @@ struct Compiler {
 void lower_simple(Compiler &);
 void lower_memory_loads(Compiler &);
 void analyze_uniformity(Compiler &);
-void allocate_registers(Compiler &);
 void codegen(Compiler &);
 
 enum class AmdIntrinsics : uint32_t {
@@ -344,7 +343,7 @@ void codegen(Compiler &cc) {
 
             cc.as.global(
                 RDNA2Assembler::global_opcode::global_store_dword,
-                true, true, false, true,
+                false, false, false, false,
                 0,                      // 12-bit immediate offset
                 0,                      // vdst (unused for stores)
                 (uint8_t)saddr,         // saddr base pointer
