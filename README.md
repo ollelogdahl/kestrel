@@ -2,6 +2,8 @@
 
 Work-in-Progress GPGPU API and driver. Currently only developing for RDNA 2.
 
+[Documentation](https://ollelogdahl.github.io/kestrel/)
+
 ## Building
 
 ```sh
