@@ -9,6 +9,8 @@ LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/sanitizers")
 
 find_package(Sanitizers)
 
+include(GitSubmoduleInit)
+
 add_subdirectory(vendor)
 # add_subdirectory(libvektor)
 add_subdirectory(kestrel)
