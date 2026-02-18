@@ -106,6 +106,10 @@ class Module {
 public:
     std::vector<Inst> insts;
 
+    uint32_t workgroup_size_x = 1;
+    uint32_t workgroup_size_y = 1;
+    uint32_t workgroup_size_z = 1;
+
     Value emit(Inst inst) {
         uint32_t id = insts.size();
         insts.push_back(inst);

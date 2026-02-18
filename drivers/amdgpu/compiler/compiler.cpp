@@ -35,6 +35,7 @@ struct Compiler {
 
 void lower_simple(Compiler &);
 void lower_memory_loads(Compiler &);
+
 void analyze_uniformity(Compiler &);
 void codegen(Compiler &);
 
@@ -121,12 +122,6 @@ void lower_simple(Compiler &cc) {
             inst.meta.phys_reg = cc.shdr.num_user_sgprs + 2;
             inst.meta.is_uniform = true;
         }
-
-        // @todo: handle local_invocation_id.
-        // There are many ways to do this, but I believe we need to lower it
-        // into a pack operation of vgpr0,1,2. But I'm not entirely sure.
-
-        // @todo: handle global invocation ids.
     }
 }
 
@@ -456,7 +451,6 @@ void codegen(Compiler &cc) {
         case gir::Op::LocalInvocationIdX:
         case gir::Op::LocalInvocationIdY:
         case gir::Op::LocalInvocationIdZ:
-        case gir::Op::LocalInvocationIndex:
         case gir::Op::WorkgroupIdX:
         case gir::Op::WorkgroupIdY:
         case gir::Op::WorkgroupIdZ:

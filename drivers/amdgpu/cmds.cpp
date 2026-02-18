@@ -285,7 +285,7 @@ KesShader amdgpu_create_shader(KesDevice pd, void *modptr) {
     assert(module, "amdgpu_create_shader: module handle invalid: {}", (void *)module);
 
     // Fixed for the Root Pointer ABI
-    auto num_user_sgprs = 2;
+    uint32_t num_user_sgprs = 2;
 
     auto shader = new Shader;
 
@@ -302,7 +302,14 @@ KesShader amdgpu_create_shader(KesDevice pd, void *modptr) {
 
     auto ordered = false;
     auto wave_size = 32;
-    auto waves_per_threadgroup = 1;
+
+    auto workgroup_size_x = module->workgroup_size_x;
+    auto workgroup_size_y = module->workgroup_size_y;
+    auto workgroup_size_z = module->workgroup_size_z;
+
+    uint32_t total_threads = workgroup_size_x * workgroup_size_y * workgroup_size_z;
+    auto waves_per_threadgroup = (total_threads + wave_size - 1) / wave_size;
+
     auto max_waves_per_sh = 0x3FF;
     auto threadgroups_per_cu = 1;
 
@@ -319,9 +326,9 @@ KesShader amdgpu_create_shader(KesDevice pd, void *modptr) {
     shader->config.user_sgpr_count = num_user_sgprs;
     shader->info.ordered = ordered;
     shader->info.wave_size = wave_size;
-    shader->info.block_size[0] = 32;
-    shader->info.block_size[1] = 1;
-    shader->info.block_size[2] = 1;
+    shader->info.block_size[0] = workgroup_size_x;
+    shader->info.block_size[1] = workgroup_size_y;
+    shader->info.block_size[2] = workgroup_size_z;
     shader->va = alloc.gpu;
     shader->info.hw_stage = HwStage::Compute;
 
@@ -343,7 +350,8 @@ KesShader amdgpu_create_shader(KesDevice pd, void *modptr) {
         | S_00B12C_TRAP_PRESENT(trap_present)
         | S_00B84C_TGID_X_EN(1)
         | S_00B84C_TGID_Y_EN(1)
-        | S_00B84C_TGID_Z_EN(1);
+        | S_00B84C_TGID_Z_EN(1)
+        | S_00B84C_TG_SIZE_EN(1);
 
     shader->config.pgm_rsrc3 =
           S_00B8A0_SHARED_VGPR_CNT(num_shared_vgpr_blocks);

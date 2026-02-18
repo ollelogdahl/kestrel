@@ -19,6 +19,7 @@ int main(void) {
     auto compute = kes_create_queue(dev, KesQueueTypeCompute);
 
     gir::Module mod;
+    mod.workgroup_size_x = 32;
     {
         gir::Builder gb(mod);
         auto rp = gb.root_ptr();
@@ -33,7 +34,7 @@ int main(void) {
     auto cl = kes_start_recording(compute);
     {
         kes_bind_shader(cl, shader);
-        kes_cmd_dispatch(cl, x.gpu, 32, 1, 1);
+        kes_cmd_dispatch(cl, x.gpu, 1, 1, 1);
     }
 
     kes_submit(compute, cl, sem, 1);
