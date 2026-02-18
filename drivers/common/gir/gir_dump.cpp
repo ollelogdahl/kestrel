@@ -1,4 +1,4 @@
-#include "gir.h"
+#include "kestrel/gir.h"
 #include <string>
 #include <sstream>
 

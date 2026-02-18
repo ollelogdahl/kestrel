@@ -74,7 +74,7 @@ API_EXPORT KesDevice kes_create() {
 
         std::string lib_name = "libkes_" + gpu.driver_name + ".so";
 
-        std::string temp_path = std::string("/home/olle/hack/kestrel/build-dev/drivers/") + lib_name;
+        std::string temp_path = std::string("/home/olle/hack/kestrel/build/drivers/") + lib_name;
 
         printf("trying path: %s\n", temp_path.c_str());
 
@@ -237,4 +237,18 @@ int kes_wait_semaphore(KesSemaphore ps, uint64_t value) {
     auto *dev = handle->dev;
 
     return dev->fns.fn_wait_semaphore(handle->sem, value);
+}
+
+KesShader kes_create_shader(KesDevice pd, void *module) {
+    auto *dev = reinterpret_cast<DeviceHandle *>(pd);
+    auto shader = dev->fns.fn_create_shader(dev->drv_handle, module);
+
+    return shader;
+}
+
+void kes_bind_shader(KesCommandList pcl, KesShader shader) {
+    auto *clhandle = reinterpret_cast<CommandListHandle *>(pcl);
+    auto *dev = clhandle->dev;
+
+    dev->fns.fn_bind_shader(clhandle->cmdlist, shader);
 }

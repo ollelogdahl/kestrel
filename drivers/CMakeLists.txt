@@ -3,6 +3,7 @@ file(GLOB_RECURSE COMMON_DRIVER_SOURCES CONFIGURE_DEPENDS
 )
 add_library(kes_driver_common STATIC ${COMMON_DRIVER_SOURCES})
 target_include_directories(kes_driver_common PUBLIC
+    ${PROJECT_SOURCE_DIR}/kestrel/include
     common
 )
 

@@ -7,6 +7,7 @@
 
 #include "cmdstream.h"
 #include "gpuinfo.h"
+#include "shader.h"
 
 #include "common.h"
 
@@ -37,6 +38,10 @@ struct QueueImpl {
 struct CommandListImpl {
     QueueImpl *queue;
     CommandStream cs;
+
+    struct {
+        Shader *shader;
+    } state;
 };
 
 struct SemaphoreImpl {
@@ -68,6 +73,9 @@ void amdgpu_cmd_dispatch_indirect(KesCommandList pcl, kes_gpuptr_t data_ptr, kes
 
 KesSemaphore amdgpu_create_semaphore(KesDevice, uint64_t);
 int amdgpu_wait_semaphore(KesSemaphore, uint64_t);
+
+KesShader amdgpu_create_shader(KesDevice device, void *module);
+void amdgpu_bind_shader(KesCommandList command_list, KesShader shader);
 }
 
 void device_register_allocation(DeviceImpl *impl, amdgpu_bo_handle bo);

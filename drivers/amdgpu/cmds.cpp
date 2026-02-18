@@ -1,4 +1,4 @@
-#include "gir/gir.h"
+#include "kestrel/gir.h"
 #include "compiler/compiler.h"
 #include "cp_encoder.h"
 #include "gpuinfo.h"
@@ -258,64 +258,41 @@ struct DispatchInfo {
     uint64_t data_va;
 };
 
-struct ShaderRegs {
-    uint32_t pgm_lo;
-    uint32_t pgm_hi;
-    uint32_t pgm_rsrc1;
-    uint32_t pgm_rsrc2;
-    uint32_t pgm_rsrc3;
+// @todo: should this really be part of a shader or the device?
+// i think device.
+void precompute_regs(ShaderInfo &info) {
+    auto &regs = info.regs;
 
-    uint32_t userdata_0;
-};
+    // @todo: setup that compute_resource_limits thingy.
 
-enum class HwStage {
-    Compute
-};
+    switch(info.hw_stage) {
+    case HwStage::Compute:
+        regs.pgm_lo = R_00B830_COMPUTE_PGM_LO;
+        regs.pgm_hi = R_00B834_COMPUTE_PGM_HI;
+        regs.pgm_rsrc1 = R_00B848_COMPUTE_PGM_RSRC1;
+        regs.pgm_rsrc2 = R_00B84C_COMPUTE_PGM_RSRC2;
+        regs.pgm_rsrc3 = R_00B8A0_COMPUTE_PGM_RSRC3;
+        regs.userdata_0 = R_00B900_COMPUTE_USER_DATA_0;
+        break;
+    }
+}
 
-struct ShaderInfo {
-    uint32_t block_size[3];
-    HwStage hw_stage;
-    ShaderRegs regs;
+KesShader amdgpu_create_shader(KesDevice pd, void *modptr) {
+    auto *dev = reinterpret_cast<DeviceImpl *>(pd);
+    gir::Module *module = reinterpret_cast<gir::Module *>(modptr);
 
-    bool ordered;
-    uint32_t wave_size;
-};
+    assert(dev, "amdgpu_create_shader: device handle invalid: {}", (void *)dev);
+    assert(module, "amdgpu_create_shader: module handle invalid: {}", (void *)module);
 
-struct ShaderConfig {
-    uint32_t pgm_rsrc1;
-    uint32_t pgm_rsrc2;
-    uint32_t pgm_rsrc3;
-    uint32_t compute_resource_limits;
-
-    uint32_t user_sgpr_count;
-};
-
-struct Shader {
-    ShaderInfo info;
-    ShaderConfig config;
-    uint64_t va;
-};
-
-void init_compute_shader_config(DeviceImpl *dev, Shader &shader) {
+    auto shader = new Shader;
 
     // @todo: ultra temporary.
     auto alloc = amdgpu_malloc(dev, 1024, 256, KesMemoryDefault);
-
-    {
-        gir::Module mod;
-        gir::Builder gb(mod);
-        auto rp = gb.get_root_ptr();
-        auto p = gb.add(rp, gb.mul(gb.get_local_invocation_id(), gb.i32(4)));
-        auto x = gb.load(p);
-        auto sum = gb.add(x, gb.i32(15));
-        gb.store(p, sum);
-
-        rdna2_compile(mod, alloc.cpu, alloc.gpu);
-    }
+    rdna2_compile(*module, alloc.cpu, alloc.gpu);
+    shader->allocation = alloc;
 
     log("shader code: {} {}", (void *)alloc.cpu, (void *)alloc.gpu);
 
-    // @todo: temporary
     auto ordered = false;
     auto wave_size = 32;
     auto waves_per_threadgroup = 1;
@@ -335,54 +312,41 @@ void init_compute_shader_config(DeviceImpl *dev, Shader &shader) {
 
     auto num_shared_vgpr_blocks = num_shared_vgprs / 8;
 
-    shader.config.user_sgpr_count = num_user_sgprs;
-    shader.info.ordered = ordered;
-    shader.info.wave_size = wave_size;
-    shader.info.block_size[0] = 32;
-    shader.info.block_size[1] = 1;
-    shader.info.block_size[2] = 1;
-    shader.va = alloc.gpu;
-    shader.info.hw_stage = HwStage::Compute;
+    shader->config.user_sgpr_count = num_user_sgprs;
+    shader->info.ordered = ordered;
+    shader->info.wave_size = wave_size;
+    shader->info.block_size[0] = 32;
+    shader->info.block_size[1] = 1;
+    shader->info.block_size[2] = 1;
+    shader->va = alloc.gpu;
+    shader->info.hw_stage = HwStage::Compute;
 
     // use large limits.
-    shader.config.compute_resource_limits =
+    shader->config.compute_resource_limits =
           S_00B854_SIMD_DEST_CNTL(waves_per_threadgroup % 4 == 0)
         | S_00B854_WAVES_PER_SH(max_waves_per_sh)
         | S_00B854_CU_GROUP_COUNT(threadgroups_per_cu - 1);
 
-    shader.config.pgm_rsrc1 =
+    shader->config.pgm_rsrc1 =
           S_00B848_VGPRS((num_vgprs - 1) / (wave_size == 32 ? 8 : 4))
         | S_00B848_DX10_CLAMP(dx10_clamp)
         | S_00B128_MEM_ORDERED(true); //always true for gfx10.3
 
-    shader.config.pgm_rsrc2 =
-          S_00B84C_USER_SGPR(shader.config.user_sgpr_count)
-        | S_00B22C_USER_SGPR_MSB_GFX10(shader.config.user_sgpr_count >> 5)
+    shader->config.pgm_rsrc2 =
+          S_00B84C_USER_SGPR(shader->config.user_sgpr_count)
+        | S_00B22C_USER_SGPR_MSB_GFX10(shader->config.user_sgpr_count >> 5)
         | S_00B12C_SCRATCH_EN(scratch_enabled)
         | S_00B12C_TRAP_PRESENT(trap_present)
         | S_00B84C_TGID_X_EN(1)
         | S_00B84C_TGID_Y_EN(1)
         | S_00B84C_TGID_Z_EN(1);
 
-    shader.config.pgm_rsrc3 =
+    shader->config.pgm_rsrc3 =
           S_00B8A0_SHARED_VGPR_CNT(num_shared_vgpr_blocks);
-}
 
-void precompute_regs(ShaderInfo &info) {
-    auto &regs = info.regs;
+    precompute_regs(shader->info);
 
-    // @todo: setup that compute_resource_limits thingy.
-
-    switch(info.hw_stage) {
-    case HwStage::Compute:
-        regs.pgm_lo = R_00B830_COMPUTE_PGM_LO;
-        regs.pgm_hi = R_00B834_COMPUTE_PGM_HI;
-        regs.pgm_rsrc1 = R_00B848_COMPUTE_PGM_RSRC1;
-        regs.pgm_rsrc2 = R_00B84C_COMPUTE_PGM_RSRC2;
-        regs.pgm_rsrc3 = R_00B8A0_COMPUTE_PGM_RSRC3;
-        regs.userdata_0 = R_00B900_COMPUTE_USER_DATA_0;
-        break;
-    }
+    return reinterpret_cast<KesShader>(shader);
 }
 
 void emit_compute_shader(Shader &shader, Pm4Encoder &enc) {
@@ -401,6 +365,21 @@ void emit_compute_shader(Shader &shader, Pm4Encoder &enc) {
     enc.emit(shader.info.block_size[2] & 0xFFFF);
 }
 
+void amdgpu_bind_shader(KesCommandList pcl, KesShader pshader) {
+    auto *cl = reinterpret_cast<CommandListImpl *>(pcl);
+    auto *shader = reinterpret_cast<Shader *>(pshader);
+    assert(cl, "amdgpu_bind_shader: command list handle invalid: {}", (void *)pcl);
+    assert(shader, "amdgpu_bind_shader: shader handle invalid: {}", (void *)shader);
+
+    cl->state.shader = shader;
+
+    // @todo: setup registers here.
+    auto hw_ip_type = hw_ip_type_from_queue_type(cl->queue->type);
+    Pm4Encoder enc(cl->queue->dev->info, hw_ip_type, cl->cs);
+
+    emit_compute_shader(*shader, enc);
+}
+
 void amdgpu_emit_dispatch_packets(GpuInfo &ginfo, Pm4Encoder &enc, Shader &shader, DispatchInfo &dinfo) {
 
     // @todo: get this from device settings
@@ -417,8 +396,6 @@ void amdgpu_emit_dispatch_packets(GpuInfo &ginfo, Pm4Encoder &enc, Shader &shade
     if (shader.info.wave_size == 32) {
         dispatch_initiator |= S_00B800_CS_W32_EN(1);
     }
-
-    emit_compute_shader(shader, enc);
 
     uint32_t regs[2];
     regs[0] = dinfo.data_va;
@@ -451,10 +428,8 @@ void amdgpu_cmd_dispatch(KesCommandList pcl, kes_gpuptr_t data, uint32_t x, uint
     auto *cl = reinterpret_cast<CommandListImpl *>(pcl);
     assert(cl, "dispatch: command list handle invalid: {}", (void *)pcl);
 
-    auto hw_ip_type = hw_ip_type_from_queue_type(cl->queue->type);
-    Pm4Encoder enc(cl->queue->dev->info, hw_ip_type, cl->cs);
+    auto dev = cl->queue->dev;
 
-    Shader tmp{};
     DispatchInfo dinfo{
         .x = x,
         .y = y,
@@ -463,11 +438,9 @@ void amdgpu_cmd_dispatch(KesCommandList pcl, kes_gpuptr_t data, uint32_t x, uint
         .data_va = data,
     };
 
-    // @todo: do this earlier.
-    init_compute_shader_config(cl->queue->dev, tmp);
-    precompute_regs(tmp.info);
-
-    amdgpu_emit_dispatch_packets(cl->queue->dev->info, enc, tmp, dinfo);
+    auto hw_ip_type = hw_ip_type_from_queue_type(cl->queue->type);
+    Pm4Encoder enc(dev->info, hw_ip_type, cl->cs);
+    amdgpu_emit_dispatch_packets(cl->queue->dev->info, enc, *cl->state.shader, dinfo);
 }
 
 void amdgpu_cmd_dispatch_indirect(KesCommandList pcl, kes_gpuptr_t data, kes_gpuptr_t indirect_addr) {

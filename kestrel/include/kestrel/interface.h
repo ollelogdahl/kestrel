@@ -32,7 +32,9 @@ struct KesDriverFuncs {
     void               (*fn_cmd_dispatch)(KesCommandList command_list, kes_gpuptr_t data, uint32_t x, uint32_t y, uint32_t z);
     void               (*fn_cmd_dispatch_indirect)(KesCommandList command_list, kes_gpuptr_t data, kes_gpuptr_t command_addr);
     KesSemaphore       (*fn_create_semaphore)(KesDevice device, uint64_t value);
-    int               (*fn_wait_semaphore)(KesSemaphore semaphore, uint64_t value);
+    int                (*fn_wait_semaphore)(KesSemaphore semaphore, uint64_t value);
+    KesShader          (*fn_create_shader)(KesDevice device, void *module);
+    void               (*fn_bind_shader)(KesCommandList command_list, KesShader shader);
 };
 
 /**

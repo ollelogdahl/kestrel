@@ -36,6 +36,11 @@ typedef void *KesCommandList;
 typedef void *KesSemaphore;
 
 /**
+ * Opaque handle to a Shader.
+ */
+typedef void *KesShader;
+
+/**
  * Structure describing a memory allocation.
  * @sa kes_malloc
  */
@@ -325,6 +330,18 @@ void kes_cmd_dispatch_indirect(KesCommandList command_list, kes_gpuptr_t data, k
 KesSemaphore kes_create_semaphore(KesDevice device, uint64_t value);
 
 int kes_wait_semaphore(KesSemaphore semaphore, uint64_t value);
+
+/**
+ * Create a Shader
+ * @param device The device to create the shader on.
+ * @param module An opaque handle to a gir::Module.
+ *
+ * @todo: TO BE REMOVED for proper spir-v or otherwise!
+ * @note: Bad leaky C++ :^/
+ */
+KesShader kes_create_shader(KesDevice device, void *module);
+
+void kes_bind_shader(KesCommandList command_list, KesShader shader);
 
 #ifdef __cplusplus
 }

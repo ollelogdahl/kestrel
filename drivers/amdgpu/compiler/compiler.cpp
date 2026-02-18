@@ -1,6 +1,5 @@
 #include "compiler.h"
 #include "rdna2_asm.h"
-#include "gir/gir.h"
 
 #include <sstream>
 #include <iomanip>

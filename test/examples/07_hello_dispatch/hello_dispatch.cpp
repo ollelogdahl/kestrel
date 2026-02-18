@@ -1,5 +1,6 @@
 #include <unistd.h>
 #include <kestrel/kestrel.h>
+#include <kestrel/gir.h>
 
 #include <stdio.h>
 
@@ -17,8 +18,21 @@ int main(void) {
 
     auto compute = kes_create_queue(dev, KesQueueTypeCompute);
 
+    gir::Module mod;
+    {
+        gir::Builder gb(mod);
+        auto rp = gb.get_root_ptr();
+        auto p = gb.add(rp, gb.mul(gb.get_local_invocation_id(), gb.i32(4)));
+        auto x = gb.load(p);
+        auto sum = gb.add(x, gb.i32(15));
+        gb.store(p, sum);
+    }
+
+    auto shader = kes_create_shader(dev, (void *)&mod);
+
     auto cl = kes_start_recording(compute);
     {
+        kes_bind_shader(cl, shader);
         kes_cmd_dispatch(cl, x.gpu, 32, 1, 1);
     }
 
