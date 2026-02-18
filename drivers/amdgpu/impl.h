@@ -6,7 +6,7 @@
 #include <amdgpu_drm.h>
 
 #include "cmdstream.h"
-#include "gpuinfo.h"
+#include "hw/gpuinfo.h"
 #include "shader.h"
 
 #include "common.h"

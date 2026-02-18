@@ -1,16 +1,17 @@
+#include "kestrel/kestrel.h"
 #include "kestrel/gir.h"
 #include "compiler/compiler.h"
-#include "cp_encoder.h"
-#include "gpuinfo.h"
-#include "kestrel/kestrel.h"
 #include "impl.h"
 
-#include "amdgfxregs.h"
-#include "sid.h"
+#include "hw/cp_encoder.h"
+#include "hw/pm4_encoder.h"
+#include "hw/sdma_encoder.h"
+#include "hw/gpuinfo.h"
+#include "hw/amdgfxregs.h"
+#include "hw/sid.h"
+
 #include <amdgpu_drm.h>
 
-#include "pm4_encoder.h"
-#include "sdma_encoder.h"
 #include <cstdint>
 
 void memset_transfer(CommandListImpl *impl, kes_gpuptr_t addr, std::size_t size, uint32_t value) {
