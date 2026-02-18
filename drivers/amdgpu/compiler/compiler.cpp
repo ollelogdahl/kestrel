@@ -27,6 +27,8 @@ struct Compiler {
     gir::Module& mod;
     RDNA2Assembler as;
 
+    CompileShaderInfo shdr;
+
     uint32_t sgpr_allocator = 6;
     uint32_t vgpr_allocator = 3;
 };
@@ -62,8 +64,9 @@ std::string_view rdna2_backend_intrinsic_to_string(uint32_t intrinsic_id) {
     }
 }
 
-void rdna2_compile(gir::Module &mod, void *write_ptr, uint64_t base_addr) {
+void rdna2_compile(gir::Module &mod, CompileShaderInfo shdr, void *write_ptr, uint64_t base_addr) {
     Compiler compiler(mod);
+    compiler.shdr = shdr;
 
     gir::pass_normalize(mod);
     lower_simple(compiler);
@@ -86,21 +89,44 @@ void rdna2_compile(gir::Module &mod, void *write_ptr, uint64_t base_addr) {
 void lower_simple(Compiler &cc) {
     for (uint32_t i = 0; i < cc.mod.insts.size(); ++i) {
         auto &inst = cc.mod.insts[i];
-        if (inst.op == gir::Op::GetRootPtr) {
+        if (inst.op == gir::Op::RootPtr) {
             // root pointer is passed as the user sgprs.
             // we don't actually have to do anything.
             inst.meta.phys_reg = 0;
             inst.meta.is_uniform = true;
         }
 
+        if (inst.op == gir::Op::LocalInvocationIdX) {
+            inst.meta.phys_reg = 0;
+            inst.meta.is_uniform = false;
+        }
+        if (inst.op == gir::Op::LocalInvocationIdY) {
+            inst.meta.phys_reg = 1;
+            inst.meta.is_uniform = false;
+        }
+        if (inst.op == gir::Op::LocalInvocationIdZ) {
+            inst.meta.phys_reg = 2;
+            inst.meta.is_uniform = false;
+        }
+
+        if (inst.op == gir::Op::WorkgroupIdX) {
+            inst.meta.phys_reg = cc.shdr.num_user_sgprs + 0;
+            inst.meta.is_uniform = true;
+        }
+        if (inst.op == gir::Op::WorkgroupIdY) {
+            inst.meta.phys_reg = cc.shdr.num_user_sgprs + 1;
+            inst.meta.is_uniform = true;
+        }
+        if (inst.op == gir::Op::WorkgroupIdZ) {
+            inst.meta.phys_reg = cc.shdr.num_user_sgprs + 2;
+            inst.meta.is_uniform = true;
+        }
+
         // @todo: handle local_invocation_id.
         // There are many ways to do this, but I believe we need to lower it
         // into a pack operation of vgpr0,1,2. But I'm not entirely sure.
-        if (inst.op == gir::Op::GetLocalInvocationId) {
-            // @todo: stop assuming 1d dispatch.
-            inst.meta.phys_reg = 0; // vgpr0
-            inst.meta.is_uniform = false;
-        }
+
+        // @todo: handle global invocation ids.
     }
 }
 
@@ -136,7 +162,7 @@ std::optional<AddressPattern> match_address_pattern(Compiler& cc, const Inst& ad
             auto& mul_lhs = cc.mod.deref(rhs.operands[0]);
             auto& mul_rhs = cc.mod.deref(rhs.operands[1]);
 
-            if (mul_lhs.op == Op::GetLocalInvocationId &&
+            if (mul_lhs.op == Op::LocalInvocationIndex &&
                 mul_rhs.op == Op::Const &&
                 mul_rhs.data.imm_i64 == 4) {
                 pat.is_tid_scaled_by_4 = true;
@@ -404,10 +430,36 @@ void codegen(Compiler &cc) {
                 not_implemented("codegen: Add not implemented for type: {}", (int)inst.type);
             }
         } break;
+        case gir::Op::WorkgroupBarrier: {
+            cc.as.sopp(RDNA2Assembler::sopp_opcode::s_barrier, 0);
+        } break;
+        case gir::Op::SubgroupBarrierInit: {
+            // this initializes with the first active thread value in a vgpr. If we
+            // have a scalar value first, we must move it.
+            //
+            // @todo: this MUST be an actual register, not a vsrc.
+            auto data = (uint8_t)((int)get_vsrc(cc, inst.operands[0]) - 256);
+            auto offset0 = inst.data.barrier_data.resource_id;
+            cc.as.ds(RDNA2Assembler::ds_opcode::ds_gws_init, true, offset0, 0, 0, data, 0, 0);
+        } break;
+        case gir::Op::SubgroupBarrierSignal: {
+            auto offset0 = inst.data.barrier_data.resource_id;
+            cc.as.ds(RDNA2Assembler::ds_opcode::ds_gws_sema_v, true, offset0, 0, 0, 0, 0, 0);
+        } break;
+        case gir::Op::SubgroupBarrierWait: {
+            auto offset0 = inst.data.barrier_data.resource_id;
+            cc.as.ds(RDNA2Assembler::ds_opcode::ds_gws_sema_p, true, offset0, 0, 0, 0, 0, 0);
+        } break;
 
         case gir::Op::Const:
-        case gir::Op::GetRootPtr:
-        case gir::Op::GetLocalInvocationId:
+        case gir::Op::RootPtr:
+        case gir::Op::LocalInvocationIdX:
+        case gir::Op::LocalInvocationIdY:
+        case gir::Op::LocalInvocationIdZ:
+        case gir::Op::LocalInvocationIndex:
+        case gir::Op::WorkgroupIdX:
+        case gir::Op::WorkgroupIdY:
+        case gir::Op::WorkgroupIdZ:
             // Skip metadata operations and constants
             break;
         default:

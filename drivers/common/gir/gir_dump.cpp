@@ -37,14 +37,25 @@ static const std::string op_str[] = {
     "Store",
     "StoreShared",
     "Const",
-    "GetRootPtr",
-    "GetLocalInvocationId",
-    "GetThreadIdX",
-    "GetThreadIdY",
-    "GetThreadIdZ",
-    "GetWorkgroupIdX",
-    "GetWorkgroupIdY",
-    "GetWorkgroupIdZ",
+    "RootPtr",
+    "LocalInvocationIdX",
+    "LocalInvocationIdY",
+    "LocalInvocationIdZ",
+    "LocalInvocationIndex",
+    "WorkgroupIdX",
+    "WorkgroupIdY",
+    "WorkgroupIdZ",
+    "SubgroupId",
+    "SubgroupSize",
+    "NumSubgroups",
+    "GlobalInvocationIdX",
+    "GlobalInvocationIdY",
+    "GlobalInvocationIdZ",
+    "GlobalInvocationIndex",
+    "WorkgroupBarrier",
+    "SubgroupBarrierInit",
+    "SubgroupBarrierWait",
+    "SubgroupBarrierSignal",
     "BackendIntrinsic",
 };
 
@@ -69,6 +80,15 @@ std::string dump_module(Module &mod, std::function<std::string_view(uint32_t)> b
                 ss << ",";
             }
             ss << " $" << operand.id;
+        }
+
+        switch (inst.op) {
+        case Op::SubgroupBarrierWait:
+        case Op::SubgroupBarrierSignal:
+            ss << " resource_id=" << inst.data.barrier_data.resource_id;
+            break;
+        default:
+            break;
         }
 
         ss << std::endl;

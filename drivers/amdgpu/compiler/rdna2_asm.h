@@ -392,6 +392,46 @@ public:
         emit(0b0 << 31 | (uint8_t)op << 25 | vdst << 17 | vsrc1 << 9 | (uint16_t)src0 & 0x1FF);
     }
 
+    enum class ds_opcode : uint8_t {
+        ds_add_u32 = 0,
+        ds_sub_u32 = 1,
+        ds_rsub_u32 = 2,
+        ds_inc_u32 = 3,
+        ds_dec_u32 = 4,
+        ds_min_i32 = 5,
+        ds_max_i32 = 6,
+        ds_min_u32 = 7,
+        ds_max_u32 = 8,
+        ds_and_b32 = 9,
+        ds_or_b32 = 10,
+        ds_xor_b32 = 11,
+        ds_mskor_b32 = 12,
+        ds_write_b32 = 13,
+        ds_write2_b32 = 14,
+        ds_write2st64_b32 = 15,
+        ds_cmpst_b32 = 16,
+        ds_cmpst_f32 = 17,
+        ds_min_f32 = 18,
+        ds_max_f32 = 19,
+        ds_nop = 20,
+        ds_add_f32 = 21,
+
+        ds_gws_sema_release_all = 24,
+        ds_gws_init = 25,
+        ds_gws_sema_v = 26,
+        ds_gws_sema_br = 27,
+        ds_gws_sema_p = 28,
+        ds_gws_barrier = 29,
+
+        // @todo: add the rest
+    };
+
+    inline void ds(ds_opcode op, bool gds, uint8_t offset0, uint8_t offset1,
+                   uint8_t addr, uint8_t data0, uint8_t data1, uint8_t vdst) {
+        emit(0b110110 << 26 | (uint8_t)op << 17 | offset1 << 8 | offset0);
+        emit((vdst & 0xFF) << 24 | (gds & 0b1) << 17 | (data1 & 0xFF) << 8 | addr & 0xFF);
+    }
+
     // @todo: i think flat & global are really the same..
     // may want to consolidate them, but what about scratch?
     enum class flat_opcode : uint8_t {

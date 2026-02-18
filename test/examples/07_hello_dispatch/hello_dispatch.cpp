@@ -21,8 +21,8 @@ int main(void) {
     gir::Module mod;
     {
         gir::Builder gb(mod);
-        auto rp = gb.get_root_ptr();
-        auto p = gb.add(rp, gb.mul(gb.get_local_invocation_id(), gb.i32(4)));
+        auto rp = gb.root_ptr();
+        auto p = gb.add(rp, gb.mul(gb.local_invocation_index(), gb.i32(4)));
         auto x = gb.load(p);
         auto sum = gb.add(x, gb.i32(15));
         gb.store(p, sum);

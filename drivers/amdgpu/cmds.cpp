@@ -284,11 +284,18 @@ KesShader amdgpu_create_shader(KesDevice pd, void *modptr) {
     assert(dev, "amdgpu_create_shader: device handle invalid: {}", (void *)dev);
     assert(module, "amdgpu_create_shader: module handle invalid: {}", (void *)module);
 
+    // Fixed for the Root Pointer ABI
+    auto num_user_sgprs = 2;
+
     auto shader = new Shader;
+
+    CompileShaderInfo shdrcompinfo {
+        .num_user_sgprs = num_user_sgprs
+    };
 
     // @todo: ultra temporary.
     auto alloc = amdgpu_malloc(dev, 1024, 256, KesMemoryDefault);
-    rdna2_compile(*module, alloc.cpu, alloc.gpu);
+    rdna2_compile(*module, shdrcompinfo, alloc.cpu, alloc.gpu);
     shader->allocation = alloc;
 
     log("shader code: {} {}", (void *)alloc.cpu, (void *)alloc.gpu);
@@ -298,9 +305,6 @@ KesShader amdgpu_create_shader(KesDevice pd, void *modptr) {
     auto waves_per_threadgroup = 1;
     auto max_waves_per_sh = 0x3FF;
     auto threadgroups_per_cu = 1;
-
-    // Fixed for the Root Pointer ABI
-    auto num_user_sgprs = 2;
 
     auto num_vgprs = 8;
     auto num_sgprs = 8;

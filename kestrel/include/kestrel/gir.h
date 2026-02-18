@@ -57,14 +57,25 @@ enum class Op {
     Store,
     StoreShared,
     Const,
-    GetRootPtr,
-    GetLocalInvocationId,
-    GetThreadIdX,
-    GetThreadIdY,
-    GetThreadIdZ,
-    GetWorkgroupIdX,
-    GetWorkgroupIdY,
-    GetWorkgroupIdZ,
+    RootPtr,
+    LocalInvocationIdX,
+    LocalInvocationIdY,
+    LocalInvocationIdZ,
+    LocalInvocationIndex,
+    WorkgroupIdX,
+    WorkgroupIdY,
+    WorkgroupIdZ,
+    SubgroupId,
+    SubgroupSize,
+    NumSubgroups,
+    GlobalInvocationIdX,
+    GlobalInvocationIdY,
+    GlobalInvocationIdZ,
+    GlobalInvocationIndex,
+    WorkgroupBarrier,
+    SubgroupBarrierInit,
+    SubgroupBarrierWait,
+    SubgroupBarrierSignal,
     BackendIntrinsic,
 };
 
@@ -78,6 +89,10 @@ struct Inst {
 
     union {
         int64_t imm_i64;
+
+        struct {
+            uint32_t resource_id;
+        } barrier_data;
     } data;
 
     struct {
@@ -124,16 +139,26 @@ public:
     void store(Value addr, Value data);
     void store_shared(Value addr, Value data);
 
-    Value get_root_ptr();
+    Value root_ptr();
 
-    Value get_local_invocation_id();
-    Value get_thread_id_x();
-    Value get_thread_id_y();
-    Value get_thread_id_z();
+    Value local_invocation_id_x();
+    Value local_invocation_id_y();
+    Value local_invocation_id_z();
+    Value local_invocation_index();
 
-    Value get_workgroup_id_x();
-    Value get_workgroup_id_y();
-    Value get_workgroup_id_z();
+    Value workgroup_id_x();
+    Value workgroup_id_y();
+    Value workgroup_id_z();
+
+    Value subgroup_id();
+    Value subgroup_size();
+    Value num_subgroups();
+
+    void workgroup_barrier();
+
+    void subgroup_barrier_init(uint32_t resource_id, Value v);
+    void subgroup_barrier_wait(uint32_t resource_id);
+    void subgroup_barrier_signal(uint32_t resource_id);
 
 protected:
     Module& mod;
@@ -253,69 +278,128 @@ inline void Builder::store_shared(Value addr, Value data) {
     });
 }
 
-inline Value Builder::get_root_ptr() {
+inline Value Builder::root_ptr() {
     return mod.emit(Inst{
-        .op = Op::GetRootPtr,
+        .op = Op::RootPtr,
         .type = Type::Ptr,
         .operands = {}
     });
 }
 
-inline Value Builder::get_local_invocation_id() {
+inline Value Builder::local_invocation_id_x() {
     return mod.emit(Inst{
-        .op = Op::GetLocalInvocationId,
+        .op = Op::LocalInvocationIdX,
         .type = Type::I32,
         .operands = {}
     });
 }
 
-inline Value Builder::get_thread_id_x() {
+inline Value Builder::local_invocation_id_y() {
     return mod.emit(Inst{
-        .op = Op::GetThreadIdX,
+        .op = Op::LocalInvocationIdY,
         .type = Type::I32,
         .operands = {}
     });
 }
 
-inline Value Builder::get_thread_id_y() {
+inline Value Builder::local_invocation_id_z() {
     return mod.emit(Inst{
-        .op = Op::GetThreadIdY,
+        .op = Op::LocalInvocationIdZ,
         .type = Type::I32,
         .operands = {}
     });
 }
 
-inline Value Builder::get_thread_id_z() {
+inline Value Builder::local_invocation_index() {
     return mod.emit(Inst{
-        .op = Op::GetThreadIdZ,
+        .op = Op::LocalInvocationIndex,
         .type = Type::I32,
         .operands = {}
     });
 }
 
 
-inline Value Builder::get_workgroup_id_x() {
+inline Value Builder::workgroup_id_x() {
     return mod.emit(Inst{
-        .op = Op::GetWorkgroupIdX,
+        .op = Op::WorkgroupIdX,
         .type = Type::I32,
         .operands = {}
     });
 }
 
-inline Value Builder::get_workgroup_id_y() {
+inline Value Builder::workgroup_id_y() {
     return mod.emit(Inst{
-        .op = Op::GetWorkgroupIdY,
+        .op = Op::WorkgroupIdY,
         .type = Type::I32,
         .operands = {}
     });
 }
 
-inline Value Builder::get_workgroup_id_z() {
+inline Value Builder::workgroup_id_z() {
     return mod.emit(Inst{
-        .op = Op::GetWorkgroupIdZ,
+        .op = Op::WorkgroupIdZ,
         .type = Type::I32,
         .operands = {}
     });
+}
+
+inline Value Builder::subgroup_id() {
+    Inst inst;
+    inst.op = Op::SubgroupId;
+    inst.type = Type::I32;
+    inst.operands = {};
+    return mod.emit(inst);
+}
+
+inline Value Builder::subgroup_size() {
+    Inst inst;
+    inst.op = Op::SubgroupSize;
+    inst.type = Type::I32;
+    inst.operands = {};
+    return mod.emit(inst);
+}
+
+inline Value Builder::num_subgroups() {
+    Inst inst;
+    inst.op = Op::NumSubgroups;
+    inst.type = Type::I32;
+    inst.operands = {};
+    return mod.emit(inst);
+}
+
+inline void Builder::workgroup_barrier() {
+    Inst inst;
+    inst.op = Op::WorkgroupBarrier;
+    inst.type = Type::Void;
+    inst.operands = {};
+    mod.emit(inst);
+}
+
+inline void Builder::subgroup_barrier_init(uint32_t resource_id, Value v) {
+    Inst inst;
+    inst.op = Op::SubgroupBarrierInit;
+    inst.type = Type::Void;
+    inst.data.barrier_data.resource_id = resource_id;
+    inst.operands = {v};
+    mod.emit(inst);
+}
+
+inline void Builder::subgroup_barrier_wait(uint32_t resource_id) {
+    Inst inst;
+    inst.op = Op::SubgroupBarrierWait;
+    inst.type = Type::Void;
+    inst.data.barrier_data.resource_id = resource_id;
+    inst.operands = {};
+    mod.emit(inst);
+}
+
+inline void Builder::subgroup_barrier_signal(uint32_t resource_id) {
+    Inst inst;
+    inst.op = Op::SubgroupBarrierSignal;
+    inst.type = Type::Void;
+    inst.data.barrier_data.resource_id = resource_id;
+    inst.operands = {};
+    mod.emit(inst);
 }
 
 }
