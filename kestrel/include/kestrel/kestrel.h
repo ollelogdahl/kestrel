@@ -317,6 +317,11 @@ void kes_cmd_dispatch(KesCommandList command_list, kes_gpuptr_t data, uint32_t x
  */
 void kes_cmd_dispatch_indirect(KesCommandList command_list, kes_gpuptr_t data, kes_gpuptr_t command_addr);
 
+/**
+ * Creates a timeline semaphore with an initial value.
+ * @param device The device to create the semaphore on.
+ * @param value The initial value of the timeline semaphore.
+ */
 KesSemaphore kes_create_semaphore(KesDevice device, uint64_t value);
 
 int kes_wait_semaphore(KesSemaphore semaphore, uint64_t value);
