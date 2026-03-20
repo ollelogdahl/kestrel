@@ -7,6 +7,8 @@ set(PROJECT_COPYRIGHT "2025")
 LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/sanitizers")
 
+include(cmake/CPM.cmake)
+
 find_package(Sanitizers)
 
 include(GitSubmoduleInit)

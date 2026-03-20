@@ -1,12 +1,5 @@
 include(FetchContent)
 
-FetchContent_Declare(
-    Catch2
-    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-    GIT_TAG v3.5.1
-)
-FetchContent_MakeAvailable(Catch2)
-
 add_library(kestrel_test_common STATIC
     common/test_utils.cpp
 )
@@ -31,11 +24,6 @@ if(UNIT_TEST_SOURCES)
 endif()
 
 include(CTest)
-include(Catch)
-
-if(TARGET kestrel_unit_tests)
-    catch_discover_tests(kestrel_unit_tests)
-endif()
 
 file(GLOB EXAMPLE_DIRS CONFIGURE_DEPENDS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}/examples ${CMAKE_CURRENT_SOURCE_DIR}/examples/*)
 foreach(example_dir ${EXAMPLE_DIRS})

@@ -55,3 +55,5 @@ set_target_properties(libdrm::i915 PROPERTIES
 add_dependencies(libdrm::libdrm libdrm_project)
 add_dependencies(libdrm::amdgpu libdrm_project)
 add_dependencies(libdrm::i915 libdrm_project)
+
+CPMAddPackage("gh:catchorg/Catch2#v3.13.0")

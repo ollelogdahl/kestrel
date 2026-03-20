@@ -10,9 +10,19 @@ target_include_directories(kes_driver_common PUBLIC
 function(add_kestrel_driver DRIVER_NAME)
     set(TARGET_NAME "kes_${DRIVER_NAME}")
 
-    file(GLOB_RECURSE DRIVER_SOURCES CONFIGURE_DEPENDS
+    file(GLOB_RECURSE DRIVER_ALL_SOURCES CONFIGURE_DEPENDS
         "${CMAKE_CURRENT_SOURCE_DIR}/${DRIVER_NAME}/*.cpp"
     )
+
+    set(DRIVER_SOURCES ${DRIVER_ALL_SOURCES})
+    set(TEST_SOURCES "")
+
+    foreach(FILE ${DRIVER_ALL_SOURCES})
+        if(FILE MATCHES ".*_test\\.cpp$")
+            list(APPEND TEST_SOURCES ${FILE})
+            list(REMOVE_ITEM DRIVER_SOURCES ${FILE})
+        endif()
+    endforeach()
 
     add_library(${TARGET_NAME} SHARED ${DRIVER_SOURCES})
 
@@ -53,6 +63,21 @@ function(add_kestrel_driver DRIVER_NAME)
         libdrm::libdrm
         ${ARGN}
     )
+
+    if(TEST_SOURCES)
+        set(TEST_EXE_NAME "test_${TARGET_NAME}")
+
+        add_executable(${TEST_EXE_NAME} ${TEST_SOURCES})
+
+        # Link the driver itself so tests can access its internal logic
+        # Note: If you need to test private symbols, you might need a OBJECT library approach
+        target_link_libraries(${TEST_EXE_NAME} PRIVATE
+            ${TARGET_NAME}
+            Catch2::Catch2WithMain
+        )
+
+        add_test(${DRIVER_NAME} ${TEST_EXE_NAME})
+    endif()
 
     add_sanitizers(${TARGET_NAME})
 endfunction()
