@@ -1,0 +1,10 @@
+dl.function,
+dl.struct,
+dl.enum,
+dl.type {
+    margin-top: 2em;
+    background-color: #ecf0f3;
+}
+dt.sig-object {
+    display: block !important;
+}
