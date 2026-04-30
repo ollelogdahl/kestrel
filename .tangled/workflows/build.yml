@@ -1,0 +1,30 @@
+when:
+  - event: ["push", "manual"]
+    branch: ["master"]
+  - event: ["pull_request"]
+    branch: ["main"]
+
+engine: "nixery"
+
+# using the default values
+clone:
+  skip: false
+  depth: 1
+  submodules: false
+
+dependencies:
+  # nixpkgs
+  nixpkgs:
+    - binutils
+    - clang
+    - cmake
+    - ninja
+    - meson
+    - uv
+    - doxygen
+
+steps:
+  - name: "Configure"
+    command: "cmake -B build -G Ninja"
+  - name: "Build"
+    command: "cmake --build build"
