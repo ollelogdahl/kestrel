@@ -23,11 +23,16 @@ function(add_kestrel_driver DRIVER_NAME)
 
     set(DRIVER_SOURCES ${DRIVER_ALL_SOURCES})
     set(TEST_SOURCES "")
+    set(FUZZ_SOURCES "")
 
     foreach(FILE ${DRIVER_ALL_SOURCES})
         if(FILE MATCHES ".*_test\\.cpp$")
             list(APPEND TEST_SOURCES ${FILE})
             list(REMOVE_ITEM DRIVER_SOURCES ${FILE})
+        endif()
+        if(FILE MATCHES ".*_fuzz\\.cpp$")
+          list(APPEND FUZZ_SOURCES ${FILE})
+          list(REMOVE_ITEM DRIVER_SOURCES ${FILE})
         endif()
     endforeach()
 
@@ -114,6 +119,46 @@ function(add_kestrel_driver DRIVER_NAME)
         )
 
         add_test(${DRIVER_NAME} ${TEST_EXE_NAME})
+    endif()
+
+    if(FUZZ_SOURCES)
+        foreach(FUZZ_FILE ${FUZZ_SOURCES})
+            # Extract file name without extension to create a clean individual target name
+            get_filename_component(FUZZ_BASE_NAME ${FUZZ_FILE} NAME_WE)
+            set(FUZZ_EXE_NAME "fuzz_${TARGET_NAME}_${FUZZ_BASE_NAME}")
+
+            add_executable(${FUZZ_EXE_NAME}
+                $<TARGET_OBJECTS:${TARGET_NAME}_obj>
+                ${FUZZ_FILE}
+            )
+
+            set_target_properties(${FUZZ_EXE_NAME} PROPERTIES
+                POSITION_INDEPENDENT_CODE ON
+                CXX_VISIBILITY_PRESET hidden
+                VISIBILITY_INLINES_HIDDEN ON
+            )
+
+            target_include_directories(${FUZZ_EXE_NAME} PRIVATE
+                ${PROJECT_SOURCE_DIR}/kestrel/include
+                ${DRIVER_NAME}
+            )
+
+            target_compile_options(${FUZZ_EXE_NAME} PRIVATE
+                $<$<CXX_COMPILER_ID:Clang>:
+                    -fsanitize=fuzzer,address,undefined
+                >
+            )
+
+            target_link_options(${FUZZ_EXE_NAME} PRIVATE
+                $<$<CXX_COMPILER_ID:Clang>:
+                    -fsanitize=fuzzer,address,undefined
+                >
+            )
+
+            target_link_libraries(${FUZZ_EXE_NAME} PRIVATE
+                ${DRIVER_LIBS}
+            )
+        endforeach()
     endif()
 
     add_sanitizers(${TARGET_NAME})
